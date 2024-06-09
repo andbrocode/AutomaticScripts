@@ -318,11 +318,11 @@ def __makeplot_overview3(df, mlti):
         ax[n,1].set_ylabel("AC (V)", fontsize=font)
         ax[n,2].set_ylabel("DC (V)", fontsize=font)
         ax[n,3].set_ylabel("Contrast (V)", fontsize=font)
-
+        
     ax[0,0].set_ylabel(f"FJ{config['ring']} (Hz)", fontsize=font)
     ax[1,0].set_ylabel(f"F1{config['ring']} (Hz)", fontsize=font)
     ax[2,0].set_ylabel(f"F2{config['ring']} (Hz)", fontsize=font)
-
+            
     for i in range(3):
         for j in range(4):
             ax[i,j].grid(zorder=0)
@@ -365,7 +365,6 @@ def main(config):
     ## add seconds column
     mlti['seconds'] = [abs(utc_date - UTCDateTime(t)) for t in mlti.dt]
 
-    print(df)
 
     ## create figure
     try:
