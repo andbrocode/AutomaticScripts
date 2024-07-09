@@ -6,7 +6,7 @@ doy=$(date -d '-1 day' +%j)
 
 doy_old=$(date -d '-3 day' +%j)
 
-datetime=$(date -d "-1days" +%Y-%m-%d)
+datetime=$(date -d '-1days' +%Y-%m-%d)
 
 
 ring=$1
@@ -34,6 +34,6 @@ fi
 dd=$(sed 's/-//g' <<< ${datetime})
 
 # copy outpuf file back to kilauea
-scp  -i /home/brotzer/.ssh/id_ed25519_kilauea /home/brotzer/archive/FJ${ring}_${dd}*.pkl brotzer@kilauea:/import/freenas-ffb-01-data/romy_autodata/${dd:4}/R${ring}/
+#scp  -i /home/brotzer/.ssh/id_ed25519_kilauea /home/brotzer/archive/FJ${ring}_${dd}*.pkl brotzer@kilauea:/import/freenas-ffb-01-data/romy_autodata/${dd::4}/R${ring}/
 
 ## End of File

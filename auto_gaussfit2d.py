@@ -10,6 +10,7 @@ from scipy.optimize import curve_fit
 from obspy import UTCDateTime
 from pandas import DataFrame, date_range
 from tqdm import tqdm
+from pandas import read_pickle
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -45,16 +46,20 @@ config['path_to_data'] = archive_path+f"ids/images{config['camera']}/"
 
 config['path_to_outdata'] = data_path+f"ids/data{config['camera']}/"
 
-config['date1'] = str((UTCDateTime().now() -86400).date).replace("-","")
+if len(sys.argv) > 2:
+    config['date1'] = str(UTCDateTime(sys.argv[2]).date).replace("-","")
+else:
+    config['date1'] = str((UTCDateTime().now() -86400).date).replace("-","")
 #config['date1'] = input("Enter Date1: ")
 
 config['nth'] = 10
 #config['nth'] = int(input("Every nth images [1]: ")) or 1
 
 ## define initial guess for different camera setups [ amplitude, xo, yo, sigma_x, sigma_y, theta, offset ]
-config['initial_guess'] = {"": (255, 2000, 1000, 500, 500, 0, 0),
-                           "03": (255, 500, 350, 500, 500, 0, 0),
-                           "07": (255, 450, 450, 500, 500, 0, 0),
+config['initial_guess0'] = {"": [255, 2000, 1000, 500, 500, 0, 0],
+                           "01": [255, 700, 550, 500, 500, 0, 0],
+                           "03": [255, 780, 550, 500, 500, 0, 0],
+                           "07": [255, 450, 450, 500, 500, 0, 0],
                           }
 
 
@@ -135,12 +140,23 @@ def __makeplot(im, im_fitted, x_max, y_max, x, y):
     #plt.show();
     return fig
 
+def __store_as_pickle(obj, filename):
+
+    import pickle
+    from os.path import isdir
+
+    ofile = open(filename, 'wb')
+    pickle.dump(obj, ofile)
+
+    if isdir(filename):
+        print(f"created: {filename}")
 
 def main():
 
+    config['initial_guess'] = config['initial_guess0']
 
     for _date in date_range(config['date1'], config['date1']):
-
+            
         # get date as str
         date_str = str(_date)[:10]
 
@@ -160,6 +176,20 @@ def main():
 
 
         for _n, file in enumerate(tqdm(files[::config['nth']])):
+                
+            config['initial_guess'][config['camera']] = config['initial_guess0'][config['camera']]
+
+            # load last estimate as intial guess
+            try:
+                guess = read_pickle(config['path_to_outdata']+"tmp/"+f"{config['camera']}_initial_guess.pkl")
+                print(int(guess[1]), int(guess[2]))
+                # check for integrity
+                if not np.isnan(guess).any() and not np.isinf(guess).any() and guess[0] > 0:
+                    if guess[1] > 0 and guess[2] > 0:
+                        config['initial_guess'][config['camera']][1] = int(guess[1])
+                        config['initial_guess'][config['camera']][2] = int(guess[2])
+            except:
+                print(f" -> failed to load initial guess")
 
 
             ## check data type
@@ -177,6 +207,7 @@ def main():
                 print(f" -> failed to load image: {file}")
                 continue
 
+            print(max(im.reshape(h*w, 1)))
 
             # prepare x-y-mesh
             x = np.linspace(0, w, w)
@@ -187,7 +218,6 @@ def main():
             initial_guess = config['initial_guess'][config['camera']]
 
             try:
-
                 # find the optimal Gaussian parameters
                 popt, pcov = curve_fit(twoD_Gaussian, (x, y), data, p0=initial_guess)
 
@@ -195,7 +225,20 @@ def main():
                 data_fitted = twoD_Gaussian((x, y), *popt)
 
             except:
-                continue
+                # give it a go with the manual set values
+                try:
+                    # initial guess of parameters [ amplitude, xo, yo, sigma_x, sigma_y, theta, offset ]
+                    initial_guess = config['initial_guess0'][config['camera']]
+
+                    # find the optimal Gaussian parameters
+                    popt, pcov = curve_fit(twoD_Gaussian, (x, y), data, p0=initial_guess)
+
+                    # create new data with these parameters
+                    data_fitted = twoD_Gaussian((x, y), *popt)
+                except:
+                    print(f" -> estimation failed !")
+                    continue
+
 
             # get diagonal values
             pcov_diag = np.diag(pcov)
@@ -231,6 +274,14 @@ def main():
             df_out.loc[_n, 'offset_var'] = pcov_diag[6]
 
 
+            # make tmp directory if not existent
+            if not os.path.isdir(config['path_to_outdata']+"tmp/"):
+                os.mkdir(config['path_to_outdata']+"tmp/")
+
+            # write current maximum estimate to file for next inital guess
+            __store_as_pickle(popt, config['path_to_outdata']+"tmp/"+f"{config['camera']}_initial_guess.pkl")
+
+
             if _n % 10 == 0:
                 mpl.use('Agg')
 
@@ -254,6 +305,7 @@ def main():
         df_out.sort_values(by="time", inplace=True)
 
         # write output data frame
+        print(f" -> write output data {config['path_to_outdata']}{date_str}.pkl")
         df_out.to_pickle(config['path_to_outdata']+f"{date_str}.pkl")
 
 
