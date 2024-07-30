@@ -19,31 +19,28 @@ from andbro__save_to_pickle import __save_to_pickle
 
 # In[2]:
 
-
 if os.uname().nodename == 'lighthouse':
     root_path = '/home/andbro/'
     data_path = '/home/andbro/kilauea-data/'
     archive_path = '/home/andbro/freenas/'
-    bay_path = '/home/andbro/bay200/'
+    bay_path = '/home/andbro/ontap-ffb-bay200/'
 elif os.uname().nodename == 'kilauea':
     root_path = '/home/brotzer/'
     data_path = '/import/kilauea-data/'
     archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/bay200/'
-elif os.uname().nodename == 'lin-ffb-01':
+    bay_path = '/import/ontap-ffb-bay200/'
+elif os.uname().nodename in ['lin-ffb-01', 'ambrym', 'hochfelln']:
     root_path = '/home/brotzer/'
     data_path = '/import/kilauea-data/'
     archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/bay200/'
+    bay_path = '/import/ontap-ffb-bay200/'
 
 
 # In[3]:
 
-
 from functions.load_beat import __load_beat
 from functions.load_mlti import __load_mlti
 from functions.get_mlti_intervals import __get_mlti_intervals
-
 
 # ## Configurations
 

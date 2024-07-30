@@ -19,17 +19,17 @@ if os.uname().nodename == 'lighthouse':
     root_path = '/home/andbro/'
     data_path = '/home/andbro/kilauea-data/'
     archive_path = '/home/andbro/freenas/'
-    bay_path = '/home/andbro/bay200/'
+    bay_path = '/home/andbro/ontap-ffb-bay200/'
 elif os.uname().nodename == 'kilauea':
     root_path = '/home/brotzer/'
     data_path = '/import/kilauea-data/'
     archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/bay200/'
+    bay_path = '/import/ontap-ffb-bay200/'
 elif os.uname().nodename in ['lin-ffb-01', 'ambrym', 'hochfelln']:
     root_path = '/home/brotzer/'
     data_path = '/import/kilauea-data/'
     archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/bay200/'
+    bay_path = '/import/ontap-ffb-bay200/'
 
 
 ## configuration
@@ -56,12 +56,18 @@ config['nth'] = 10
 #config['nth'] = int(input("Every nth images [1]: ")) or 1
 
 ## define initial guess for different camera setups [ amplitude, xo, yo, sigma_x, sigma_y, theta, offset ]
-config['initial_guess0'] = {"": [255, 2000, 1000, 500, 500, 0, 0],
-                           "01": [255, 700, 550, 500, 500, 0, 0],
-                           "03": [255, 780, 550, 500, 500, 0, 0],
-                           "07": [255, 450, 450, 500, 500, 0, 0],
-                          }
+#config['initial_guess0'] = {"": [255, 2400, 500, 500, 500, 0, 0],
+#                           "01": [255, 700, 550, 500, 500, 0, 0],
+#                           "03": [255, 780, 550, 500, 500, 0, 0],
+#                           "07": [255, 750, 550, 500, 500, 0, 0],
+#                          }
 
+# 2024-07-29
+config['initial_guess0'] = {"": (255, 2000, 1000, 500, 500, 0, 0),
+                           "01": (255, 550, 550, 500, 500, 0, 0),
+                           "03": (255, 700, 500, 500, 500, 0, 0),
+                           "07": (255, 750, 500, 500, 500, 0, 0),
+                          }
 
 def twoD_Gaussian(xy, amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
 
@@ -75,7 +81,7 @@ def twoD_Gaussian(xy, amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
 
     return g.ravel()
 
-def __makeplot(im, im_fitted, x_max, y_max, x, y):
+def __makeplot(im, im_fitted, x_max, y_max, x, y, amax=255):
 
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
@@ -94,7 +100,10 @@ def __makeplot(im, im_fitted, x_max, y_max, x, y):
     ax2 = fig.add_subplot(gs[0:2, 4:])
     ax3 = fig.add_subplot(gs[2:4, 4:])
 
-    ax1.imshow(im, cmap=plt.get_cmap("gray"));
+    if amax > 255:
+        ax1.imshow(im, cmap=plt.get_cmap("gray"), vmax=255);
+    else:
+        ax1.imshow(im, cmap=plt.get_cmap("gray"), vmax=amax);
     ax1.contour(x, y, im_fitted);
     ax1.scatter(x_max, y_max, color="red", marker="d");
 
@@ -156,7 +165,7 @@ def main():
     config['initial_guess'] = config['initial_guess0']
 
     for _date in date_range(config['date1'], config['date1']):
-            
+
         # get date as str
         date_str = str(_date)[:10]
 
@@ -176,7 +185,7 @@ def main():
 
 
         for _n, file in enumerate(tqdm(files[::config['nth']])):
-                
+
             config['initial_guess'][config['camera']] = config['initial_guess0'][config['camera']]
 
             # load last estimate as intial guess
@@ -207,7 +216,10 @@ def main():
                 print(f" -> failed to load image: {file}")
                 continue
 
-            print(max(im.reshape(h*w, 1)))
+            # check for maximum amplitude (= dark images)
+            if max(im.reshape(h*w, 1)) < 10:
+                print(f" -> image dark! stop!")
+                continue
 
             # prepare x-y-mesh
             x = np.linspace(0, w, w)
@@ -219,7 +231,10 @@ def main():
 
             try:
                 # find the optimal Gaussian parameters
-                popt, pcov = curve_fit(twoD_Gaussian, (x, y), data, p0=initial_guess)
+                popt, pcov = curve_fit(twoD_Gaussian, (x, y), data, p0=initial_guess,
+                                       bounds=([0, 0, 0, 0, 0, 0, -np.inf],
+                                               [1000, w, h, 2000, 2000, 360, np.inf])
+                                      )
 
                 # create new data with these parameters
                 data_fitted = twoD_Gaussian((x, y), *popt)
@@ -239,7 +254,8 @@ def main():
                     print(f" -> estimation failed !")
                     continue
 
-
+            print(popt)
+            
             # get diagonal values
             pcov_diag = np.diag(pcov)
 
@@ -248,7 +264,8 @@ def main():
 
             # get maximum of 2d fit
             y_max, x_max = np.argwhere(im_fitted == im_fitted.max())[0]
-
+            print(f"X: {x_max}  Y: {y_max}")
+            
             date_str = file.split('.')[0].split('_')[0]
             time_str = file.split('.')[0].split('_')[1]
 
@@ -273,7 +290,6 @@ def main():
             df_out.loc[_n, 'theta_var'] = pcov_diag[5]
             df_out.loc[_n, 'offset_var'] = pcov_diag[6]
 
-
             # make tmp directory if not existent
             if not os.path.isdir(config['path_to_outdata']+"tmp/"):
                 os.mkdir(config['path_to_outdata']+"tmp/")
@@ -294,12 +310,11 @@ def main():
                     if not os.path.isdir(config['path_to_outdata']+"outfigs/"):
                         os.mkdir(config['path_to_outdata']+"outfigs/")
 
-                    fig = __makeplot(im, im_fitted, x_max, y_max, x, y);
+                    fig = __makeplot(im, im_fitted, x_max, y_max, x, y, amax=popt[0]*1.5);
 
                     fig.savefig(config['path_to_outdata']+"outfigs/"+f"{file[:-4]}_mod.png", format="png", dpi=150, bbox_inches='tight');
 
             _gc = gc.collect();
-
 
         # sort for time column
         df_out.sort_values(by="time", inplace=True)
