@@ -63,10 +63,10 @@ config['nth'] = 10
 #                          }
 
 # 2024-07-29
-config['initial_guess0'] = {"": (255, 2000, 1000, 500, 500, 0, 0),
-                           "01": (255, 550, 550, 500, 500, 0, 0),
-                           "03": (255, 700, 500, 500, 500, 0, 0),
-                           "07": (255, 750, 500, 500, 500, 0, 0),
+config['initial_guess0'] = {"": [255, 2000, 1000, 500, 500, 0, 0],
+                           "01": [255, 550, 550, 500, 500, 0, 0],
+                           "03": [255, 700, 500, 500, 500, 0, 0],
+                           "07": [255, 750, 500, 500, 500, 0, 0],
                           }
 
 def twoD_Gaussian(xy, amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
@@ -191,13 +191,14 @@ def main():
             # load last estimate as intial guess
             try:
                 guess = read_pickle(config['path_to_outdata']+"tmp/"+f"{config['camera']}_initial_guess.pkl")
-                print(int(guess[1]), int(guess[2]))
+#                print(int(guess[1]), int(guess[2]))
                 # check for integrity
                 if not np.isnan(guess).any() and not np.isinf(guess).any() and guess[0] > 0:
                     if guess[1] > 0 and guess[2] > 0:
                         config['initial_guess'][config['camera']][1] = int(guess[1])
                         config['initial_guess'][config['camera']][2] = int(guess[2])
-            except:
+            except Exception as e:
+                print(e)
                 print(f" -> failed to load initial guess")
 
 
@@ -254,7 +255,7 @@ def main():
                     print(f" -> estimation failed !")
                     continue
 
-            print(popt)
+#            print(popt)
             
             # get diagonal values
             pcov_diag = np.diag(pcov)
@@ -264,7 +265,7 @@ def main():
 
             # get maximum of 2d fit
             y_max, x_max = np.argwhere(im_fitted == im_fitted.max())[0]
-            print(f"X: {x_max}  Y: {y_max}")
+            print(f" -> X: {x_max}  Y: {y_max}")
             
             date_str = file.split('.')[0].split('_')[0]
             time_str = file.split('.')[0].split('_')[1]
