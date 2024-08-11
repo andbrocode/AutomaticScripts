@@ -13,7 +13,6 @@ import obspy as obs
 import matplotlib.colors
 
 from pandas import DataFrame
-from andbro__save_to_pickle import __save_to_pickle
 
 #import matplotlib
 #matplotlib.use('Agg')
@@ -75,6 +74,18 @@ config['AC_threshold'] = 0.15
 config['delta_fsagnac'] = 2.0
 
 # ___________________________________________________
+
+def __save_to_pickle(obj, path, name):
+
+    import os
+    import pickle
+
+    ofile = open(path+name+".pkl", 'wb')
+    pickle.dump(obj, ofile)
+
+    if os.path.isfile(path+name+".pkl"):
+        print(f"\n -> created:  {path}{name}.pkl")
+
 
 def __get_mlti_intervals(mlti_times, time_delta=60):
 

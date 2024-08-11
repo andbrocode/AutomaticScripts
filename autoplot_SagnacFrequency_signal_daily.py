@@ -298,20 +298,20 @@ def __makeplot_overview3(df, mlti):
     plt.subplots_adjust(wspace=0.4)
 
     ax[0,0].plot(df.index/60, df.fj, label=f"FJ{config['ring']}")
-    ax[1,0].plot(df.index/60,df.f1, label="CCW")
-    ax[2,0].plot(df.index/60,df.f2, label="CW")
+    ax[1,0].plot(df.index/60, df.f1, label="CCW")
+    ax[2,0].plot(df.index/60, df.f2, label="CW")
 
-    ax[0,1].plot(df.index/60,df.ac_z, label=f"FJ{config['ring']}")
-    ax[1,1].plot(df.index/60,df.ac_1, label="CCW")
-    ax[2,1].plot(df.index/60,df.ac_2, label="CW")
+    ax[0,1].plot(df.index/60, df.ac_z, label=f"FJ{config['ring']}")
+    ax[1,1].plot(df.index/60, df.ac_1, label="CCW")
+    ax[2,1].plot(df.index/60, df.ac_2, label="CW")
 
-    ax[0,2].plot(df.index/60,df.dc_z, label=f"FJ{config['ring']}")
-    ax[1,2].plot(df.index/60,df.dc_1, label="CCW")
-    ax[2,2].plot(df.index/60,df.dc_2, label="CW")
+    ax[0,2].plot(df.index/60, df.dc_z, label=f"FJ{config['ring']}")
+    ax[1,2].plot(df.index/60, df.dc_1, label="CCW")
+    ax[2,2].plot(df.index/60, df.dc_2, label="CW")
 
-    ax[0,3].plot(df.index/60,df.contrast_z, label=f"FJ{config['ring']}")
-    ax[1,3].plot(df.index/60,df.contrast_1, label="CCW")
-    ax[2,3].plot(df.index/60,df.contrast_2, label="CW")
+    ax[0,3].plot(df.index/60, df.contrast_z, label=f"FJ{config['ring']}")
+    ax[1,3].plot(df.index/60, df.contrast_1, label="CCW")
+    ax[2,3].plot(df.index/60, df.contrast_2, label="CW")
 
 
 

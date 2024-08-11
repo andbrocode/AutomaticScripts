@@ -34,7 +34,7 @@ config['ring'] = sys.argv[1]
 
 ## specify seed id for [sagnac, monobeam1, monobeam2]
 config['seeds'] = [f"BW.DROMY..FJ{config['ring']}", f"BW.DROMY..F1{config['ring']}", f"BW.DROMY..F2{config['ring']}"]
-if config['ring'] == "U":
+if config['ring'] == "Z":
     config['seeds'] = [f"BW.DROMY..FJ{config['ring']}", f"BW.DROMY..F1V", f"BW.DROMY..F2V"]
 
 config['n_cpu'] = 3
