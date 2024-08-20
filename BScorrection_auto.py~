@@ -361,7 +361,6 @@ def main(config):
         mon1 = __load_romy_raw_data(config['seeds'][1], _tbeg-2*config['ddt'], _tend+2*config['ddt'], config['path_to_sds'])
         mon2 = __load_romy_raw_data(config['seeds'][2], _tbeg-2*config['ddt'], _tend+2*config['ddt'], config['path_to_sds'])
 
-
         # get time intervals for iteration
         times = __get_time_intervals(_tbeg, _tend, interval_seconds=config['interval'], interval_overlap=0)
 

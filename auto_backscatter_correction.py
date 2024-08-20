@@ -49,6 +49,9 @@ config['mode'] = "hilbert" # "hilbert" | "sine"
 # specify seed codes
 config['seeds'] = [f"BW.DROMY..FJ{config['ring']}", "BW.DROMY..F1V", "BW.DROMY..F2V"]
 
+# specify interval of data to load (in seconds)
+config['time_interval'] = 3600
+
 # specify time interval in seconds
 config['interval'] = 120
 
@@ -329,7 +332,7 @@ def __hilbert_frequency_estimator(st, nominal_sagnac, fband=10, cut=0):
 
     # get times
     t = st0[0].times()
-    t_mid = t[int((len(t))/2)]
+    t_mid = t[int((len(t))/2)] + config['ddt']
 
     # averaging of frequencies
     # insta_f_cut_avg = np.mean(insta_f_cut)
@@ -499,7 +502,7 @@ def __merge_backscatter_data(tbeg, tend, ring, path_to_data):
 def main(config):
 
     # hourly data because much data for memory
-    hours = __get_time_intervals(config['tbeg'], config['tend'], interval_seconds=3600, interval_overlap=0)
+    hours = __get_time_intervals(config['tbeg'], config['tend'], interval_seconds=config['time_interval'], interval_overlap=0)
 
     for _tbeg, _tend in hours:
 

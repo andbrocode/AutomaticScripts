@@ -182,7 +182,7 @@ def __hilbert_frequency_estimator(st, nominal_sagnac, fband=10, cut=0):
 
     ## get times
     t = st0[0].times()
-    t_mid = t[int((len(t))/2)]
+    t_mid = t[int((len(t))/2)] + config['ddt']
 
     ## averaging of frequencies
     # insta_f_cut_avg = np.mean(insta_f_cut)
@@ -262,7 +262,6 @@ def __get_fft_values(signal_in, dt, f_sagn, window=None):
     freq = frequencies[0:n//2]
     spec = magnitude[0:n//2]
     pha = phase[0:n//2]
-
 
     ## specify f-band around Sagnac frequency
     fl = f_sagn - 2
@@ -398,6 +397,7 @@ def main(config):
                                                                     fband=config['fband'],
                                                                     cut=config['ddt']
                                                                     )
+#                t = (t2 - t2)/2 + t1
 
                 # estimate DC and AC based on time series (time domain)
                 # dc[_n] = np.mean(_dat)
