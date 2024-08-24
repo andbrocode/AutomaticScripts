@@ -50,10 +50,10 @@ config['mode'] = "hilbert" # "hilbert" | "sine"
 config['seeds'] = [f"BW.DROMY..FJ{config['ring']}", "BW.DROMY..F1V", "BW.DROMY..F2V"]
 
 # specify interval of data to load (in seconds)
-config['time_interval'] = 7200
+config['time_interval'] = 3600
 
 # specify time interval in seconds
-config['interval'] = 120
+config['interval'] = 60
 
 # set if amplitdes are corrected with envelope
 config['correct_amplitudes'] = False
@@ -78,7 +78,7 @@ config['nominal_sagnac'] = config['ring_sagnac'][config['ring']]
 config['path_to_autodata'] = archive_path+f"romy_autodata/"
 
 # specify path to Sagnac data
-config['path_to_data'] = data_path+"sagnac_frequency/data2/"
+config['path_to_data'] = data_path+"sagnac_frequency/data/"
 
 # specify path to output figures
 config['path_to_figs'] = data_path+"sagnac_frequency/figures/"
@@ -332,7 +332,7 @@ def __hilbert_frequency_estimator(st, nominal_sagnac, fband=10, cut=0):
 
     # get times
     t = st0[0].times()
-    t_mid = t[int((len(t))/2)] + config['dtt']
+    t_mid = t[int((len(t))/2)] + config['ddt']
 
     # averaging of frequencies
     # insta_f_cut_avg = np.mean(insta_f_cut)

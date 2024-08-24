@@ -613,8 +613,8 @@ def main(config):
         # store data
         date_str = f"{_tbeg.year}{str(_tbeg.month).rjust(2,'0')}{str(_tbeg.day).rjust(2,'0')}"
         time_str = f"{str(_tbeg.time).split('.')[0]}"
-        out_df.to_pickle(config['path_to_data']+f"FJ{config['ring']}_{date_str}_{time_str}_backscatter120.pkl")
-        print(f" -> writing: {config['path_to_data']}FJ{config['ring']}_{date_str}_{time_str}_backscatter120.pkl")
+        out_df.to_pickle(config['path_to_data']+f"FJ{config['ring']}_{date_str}_{time_str}_backscatter{config['interval']}.pkl")
+        print(f" -> writing: {config['path_to_data']}FJ{config['ring']}_{date_str}_{time_str}_backscatter{config['interval']}.pkl")
 
     # load hourly data files to form one data frame
     __merge_backscatter_data(_tbeg, _tend, config['ring'], config['path_to_data'])

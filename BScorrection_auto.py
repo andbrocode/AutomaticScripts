@@ -355,11 +355,6 @@ def main(config):
 
     for _tbeg, _tend in hours:
 
-        # load data
-        sagn = __load_romy_raw_data(config['seeds'][0], _tbeg-2*config['ddt'], _tend+2*config['ddt'], config['path_to_sds'])
-        mon1 = __load_romy_raw_data(config['seeds'][1], _tbeg-2*config['ddt'], _tend+2*config['ddt'], config['path_to_sds'])
-        mon2 = __load_romy_raw_data(config['seeds'][2], _tbeg-2*config['ddt'], _tend+2*config['ddt'], config['path_to_sds'])
-
         # get time intervals for iteration
         times = __get_time_intervals(_tbeg, _tend, interval_seconds=config['interval'], interval_overlap=0)
 
@@ -368,6 +363,20 @@ def main(config):
         fs, ac, dc, ph, st = np.ones(NN)*np.nan, np.ones(NN)*np.nan, np.ones(NN)*np.nan, np.ones(NN)*np.nan, np.ones(NN)*np.nan
 
         ph_wrap = np.ones(NN)*np.nan
+
+        # load data
+        try:
+            sagn = __load_romy_raw_data(config['seeds'][0], _tbeg-2*config['ddt'], _tend+2*config['ddt'], config['path_to_sds'])
+            mon1 = __load_romy_raw_data(config['seeds'][1], _tbeg-2*config['ddt'], _tend+2*config['ddt'], config['path_to_sds'])
+            mon2 = __load_romy_raw_data(config['seeds'][2], _tbeg-2*config['ddt'], _tend+2*config['ddt'], config['path_to_sds'])
+        except:
+            continue
+
+        # check for correct size
+        for _st in [sagn, mon1, mon2]:
+            if len(_st) > 1:
+                _st.merge()
+
 
         # prepare output dataframe
         out_df = DataFrame()
@@ -380,42 +389,46 @@ def main(config):
 
             for _n, (t1, t2) in enumerate(times):
 
-                # print(t1,t2)
+                try:
+                    # print(t1,t2)
 
-                # _dat = _st.copy().trim(t1, t2)
-                _dat = _st.copy().trim(t1-config['ddt'], t2+config['ddt'])
+                    # _dat = _st.copy().trim(t1, t2)
+                    _dat = _st.copy().trim(t1-config['ddt'], t2+config['ddt'])
 
-                # estimate AC and DC values in frequency domain
-                fs[_n], ac[_n], dc[_n], ph[_n] = __get_fft_values(_dat[0].data,
-                                                                _dat[0].stats.delta,
-                                                                config['nominal_sagnac']
-                                                                )
-
-                # estimate instantaneous frequency average via hilbert
-                t, fs[_n], _, st[_n] = __hilbert_frequency_estimator(_dat,
-                                                                    config['nominal_sagnac'],
-                                                                    fband=config['fband'],
-                                                                    cut=config['ddt']
+                    # estimate AC and DC values in frequency domain
+                    fs[_n], ac[_n], dc[_n], ph[_n] = __get_fft_values(_dat[0].data,
+                                                                    _dat[0].stats.delta,
+                                                                    config['nominal_sagnac']
                                                                     )
-#                t = (t2 - t2)/2 + t1
 
-                # estimate DC and AC based on time series (time domain)
-                # dc[_n] = np.mean(_dat)
-                # ac[_n] = np.percentile(_dat[0].data, 99.9) - np.percentile(_dat[0].data, 100-99.9)
+                    # estimate instantaneous frequency average via hilbert
+                    t, fs[_n], _, st[_n] = __hilbert_frequency_estimator(_dat,
+                                                                        config['nominal_sagnac'],
+                                                                        fband=config['fband'],
+                                                                        cut=config['ddt']
+                                                                        )
+                    # t = (t2 - t2)/2 + t1
 
-            ph_wrap = ph
-            ph = np.unwrap(ph)
+                    # estimate DC and AC based on time series (time domain)
+                    # dc[_n] = np.mean(_dat)
+                    # ac[_n] = np.percentile(_dat[0].data, 99.9) - np.percentile(_dat[0].data, 100-99.9)
 
-            # fill output dataframe
-            if _k == 0:
-                out_df['fj_fs'], out_df['fj_ac'], out_df['fj_dc'], out_df['fj_ph'], out_df['fj_st'] = fs, ac, dc, ph, st
-                out_df['fj_phw'] = ph_wrap
-            elif _k == 1:
-                out_df['f1_fs'], out_df['f1_ac'], out_df['f1_dc'], out_df['f1_ph'], out_df['f1_st'] = fs, ac, dc, ph, st
-                out_df['f1_phw'] = ph_wrap
-            elif _k == 2:
-                out_df['f2_fs'], out_df['f2_ac'], out_df['f2_dc'], out_df['f2_ph'], out_df['f2_st'] = fs, ac, dc, ph, st
-                out_df['f2_phw'] = ph_wrap
+                except:
+                    print(f" -> procssing failed!")
+                
+                ph_wrap = ph
+                ph = np.unwrap(ph)
+
+                # fill output dataframe
+                if _k == 0:
+                    out_df['fj_fs'], out_df['fj_ac'], out_df['fj_dc'], out_df['fj_ph'], out_df['fj_st'] = fs, ac, dc, ph, st
+                    out_df['fj_phw'] = ph_wrap
+                elif _k == 1:
+                    out_df['f1_fs'], out_df['f1_ac'], out_df['f1_dc'], out_df['f1_ph'], out_df['f1_st'] = fs, ac, dc, ph, st
+                    out_df['f1_phw'] = ph_wrap
+                elif _k == 2:
+                    out_df['f2_fs'], out_df['f2_ac'], out_df['f2_dc'], out_df['f2_ph'], out_df['f2_st'] = fs, ac, dc, ph, st
+                    out_df['f2_phw'] = ph_wrap
 
         # prepare values for backscatter correction
         m01 = out_df.f1_ac / out_df.f1_dc
