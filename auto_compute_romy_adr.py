@@ -39,6 +39,12 @@ elif os.uname().nodename in ['lin-ffb-01', 'ambrym', 'hochfelln']:
 
 config = {}
 
+# set reference station
+config['reference'] = "GR.FUR"
+
+# specify stations to exclude
+config['exclude'] = ['BW.ALFT']
+
 # output path for figures
 # config['path_to_figs'] = data_path+"romy_events/figures/"
 
@@ -665,8 +671,8 @@ def main(config):
     try:
         iadr = __compute_romy_adr(config['tbeg'],
                                   config['tend'],
-                                  submask="inner",
-                                  ref_station='GR.FUR',
+                                  submask='inner',
+                                  ref_station=config['reference'],
                                   verbose=config['verbose'],
                                   excluded_stations=[],
                                   map_plot=False,
@@ -684,9 +690,9 @@ def main(config):
         oadr = __compute_romy_adr(config['tbeg'],
                                   config['tend'],
                                   submask='outer',
-                                  ref_station='GR.FUR',
+                                  ref_station=config['reference'],
                                   verbose=config['verbose'],
-                                  excluded_stations=['BW.ALFT'],
+                                  excluded_stations=config['exclude'],
                                   map_plot=False,
                                  )
 #        oadr.plot();
@@ -696,6 +702,24 @@ def main(config):
         oadr = obs.Stream()
 
     # ___________________________________________________
+    # ## Compute ADR for entire array
+
+    try:
+        aadr = __compute_romy_adr(config['tbeg'],
+                                  config['tend'],
+                                  submask='all',
+                                  ref_station=config['reference'],
+                                  verbose=config['verbose'],
+                                  excluded_stations=config['exclude'],
+                                  map_plot=False,
+                                 )
+#        oadr.plot();
+
+    except Exception as e:
+        print(e)
+        aadr = obs.Stream()
+
+    # ___________________________________________________
     # ## Store Data
 
     try:
@@ -703,12 +727,15 @@ def main(config):
     except Exception as e:
         print(e)
 
-
     try:
         __write_stream_to_sds(oadr, config['path_to_out_data'])
     except Exception as e:
         print(e)
 
+    try:
+        __write_stream_to_sds(aadr, config['path_to_out_data'])
+    except Exception as e:
+        print(e)
 # ___________________________________________________
 
 if __name__ == "__main__":
