@@ -55,26 +55,33 @@ else:
 config['nth'] = 10
 #config['nth'] = int(input("Every nth images [1]: ")) or 1
 
-## define initial guess for different camera setups [ amplitude, xo, yo, sigma_x, sigma_y, theta, offset ]
-#config['initial_guess0'] = {"": [255, 2400, 500, 500, 500, 0, 0],
-#                           "01": [255, 700, 550, 500, 500, 0, 0],
-#                           "03": [255, 780, 550, 500, 500, 0, 0],
-#                           "07": [255, 750, 550, 500, 500, 0, 0],
-#                          }
+# define initial guess for different camera setups [ amplitude, xo, yo, sigma_x, sigma_y, theta, offset ]
+if UTCDateTime(config['date1']) >= UTCDateTime("2024-08-01"):
+    # 2024-08-01
+    config['initial_guess0'] = {"00": [255, 600, 600, 500, 500, 0, 0],
+                                "01": [255, 550, 550, 500, 500, 0, 0],
+                                "03": [255, 500, 450, 500, 500, 0, 0],
+                                "05": [255, 550, 500, 500, 500, 0, 0],
+                                "07": [255, 650, 400, 500, 500, 0, 0],
+                            }
+elif UTCDateTime(config['date1']) >= UTCDateTime("2024-07-29"):
+    # 2024-07-29
+    config['initial_guess0'] = {"00": [255, 2000, 1000, 500, 500, 0, 0],
+                                "01": [255, 550, 550, 500, 500, 0, 0],
+                                "03": [255, 700, 500, 500, 500, 0, 0],
+                                "07": [255, 750, 500, 500, 500, 0, 0],
+                            }
 
-# 2024-07-29
-#config['initial_guess0'] = {"": [255, 2000, 1000, 500, 500, 0, 0],
-#                           "01": [255, 550, 550, 500, 500, 0, 0],
-#                           "03": [255, 700, 500, 500, 500, 0, 0],
-#                           "07": [255, 750, 500, 500, 500, 0, 0],
-#                          }
-# 2024-08-01
-config['initial_guess0'] = {"": [255, 600, 600, 500, 500, 0, 0],
-                            "01": [255, 550, 550, 500, 500, 0, 0],
-                            "03": [255, 500, 450, 500, 500, 0, 0],
-                            "05": [255, 550, 500, 500, 500, 0, 0],
-                            "07": [255, 650, 400, 500, 500, 0, 0],
-                           }
+elif UTCDateTime(config['date1']) <= UTCDateTime("2024-04-01"):
+    # 2024-03-01 - 2024-04-01
+    config['initial_guess0'] = {"00": [255, 1700, 950, 500, 500, 0, 0],
+                            }
+else:
+    config['initial_guess0'] = {"00": [255, 2400, 500, 500, 500, 0, 0],
+                                "01": [255, 700, 550, 500, 500, 0, 0],
+                                "03": [255, 780, 550, 500, 500, 0, 0],
+                                "07": [255, 750, 550, 500, 500, 0, 0],
+                            }
 
 def twoD_Gaussian(xy, amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
 
@@ -169,8 +176,10 @@ def __store_as_pickle(obj, filename):
 
 def main():
 
+    # initialize
     config['initial_guess'] = config['initial_guess0']
 
+    # run loop over dates
     for _date in date_range(config['date1'], config['date1']):
 
         # get date as str
@@ -179,7 +188,11 @@ def main():
         path_to_data = f"{config['path_to_data']}{date_str.replace('-','')}/"
 
         # read files in directory
-        files = os.listdir(path_to_data)
+        try:
+            files = os.listdir(path_to_data)
+        except:
+            print(f" -> {date_str} not in directory!")
+            continue
 
         # dummy data
         dummy = np.ones(len(files[::config['nth']]))*np.nan
@@ -190,34 +203,48 @@ def main():
         for col in ["time", "x", "y", "x_idx", "y_idx", "amp", "x_sig", "y_sig", "theta", "offset", "x_var", "y_var", "amp_var", "y_sig_var", "x_sig_var", "theta_var", "offset_var"]:
             df_out[col] = dummy
 
-
         for _n, file in enumerate(tqdm(files[::config['nth']])):
 
             config['initial_guess'][config['camera']] = config['initial_guess0'][config['camera']]
 
             # load last estimate as intial guess
             try:
+
+                # read file
                 guess = read_pickle(config['path_to_outdata']+"tmp/"+f"{config['camera']}_initial_guess.pkl")
-#                print(int(guess[1]), int(guess[2]))
+
                 # check for integrity
                 if not np.isnan(guess).any() and not np.isinf(guess).any() and guess[0] > 0:
                     if guess[1] > 0 and guess[2] > 0:
                         config['initial_guess'][config['camera']][1] = int(guess[1])
                         config['initial_guess'][config['camera']][2] = int(guess[2])
+
             except Exception as e:
                 print(e)
                 print(f" -> failed to load initial guess")
 
 
-            ## check data type
+            # check data type
             if file[-3:] != "png":
                 print(f" -> not a png: {file}")
                 continue
 
-            ## load image and get dimensions
+            # load image and get dimensions
             try:
+
+                # load image
                 im = cv2.imread(path_to_data+file, -1)
+
+                # flip vertically
+                # im = np.array(list(reversed(im)))
+
+                # flip horizontally
+                im = np.array([list(reversed(row)) for row in im])
+
+                # obtain dimensions
                 h, w = im.shape
+
+                # create data array
                 data = im.ravel()
 
             except:
@@ -263,7 +290,7 @@ def main():
                     continue
 
 #            print(popt)
-            
+
             # get diagonal values
             pcov_diag = np.diag(pcov)
 
@@ -273,7 +300,7 @@ def main():
             # get maximum of 2d fit
             y_max, x_max = np.argwhere(im_fitted == im_fitted.max())[0]
             print(f" -> X: {x_max}  Y: {y_max}")
-            
+
             date_str = file.split('.')[0].split('_')[0]
             time_str = file.split('.')[0].split('_')[1]
 
@@ -318,11 +345,9 @@ def main():
                     if not os.path.isdir(config['path_to_outdata']+"outfigs/"):
                         os.mkdir(config['path_to_outdata']+"outfigs/")
                     try:
-                        fig = __makeplot(im, im_fitted, x_max, y_max, x, y, amax=popt[0]*1.5);
+                        fig = __makeplot(im, im_fitted, x_max, y_max, x, y, amax=popt[0]*1             fig.savefig(config['path_to_outdata']+"outfigs/"+f"{file[:-4]}_mod.png", format="png", dpi=150, bbox_inches='tight');
                     except Exception as e:
                         print(e)
-
-                    fig.savefig(config['path_to_outdata']+"outfigs/"+f"{file[:-4]}_mod.png", format="png", dpi=150, bbox_inches='tight');
 
             _gc = gc.collect();
 

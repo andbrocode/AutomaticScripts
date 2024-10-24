@@ -8,7 +8,9 @@ import os
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
+import multiprocessing as mp
 
+from tqdm import tqdm
 from datetime import datetime, date
 from pandas import DataFrame, read_pickle, date_range, concat, read_csv
 from obspy import UTCDateTime, read
@@ -37,11 +39,16 @@ elif os.uname().nodename in ['lin-ffb-01', 'ambrym', 'hochfelln']:
 config = {}
 
 # extract date
-config['tbeg'] = UTCDateTime(sys.argv[1])
-config['tend'] = config['tbeg'] + 86400
+# config['tbeg'] = UTCDateTime(sys.argv[1])
+# config['tend'] = config['tbeg'] + 86400
+
+config['tbeg'] = UTCDateTime("2024-10-23 00:00")
+config['tend'] = UTCDateTime("2024-10-24 00:00")
+
 
 # extract ring
-config['ring'] = sys.argv[2]
+# config['ring'] = sys.argv[2]
+config['ring'] = "Z"
 
 # select frequency estimation mode
 config['mode'] = "hilbert" # "hilbert" | "sine"
@@ -53,7 +60,7 @@ config['seeds'] = [f"BW.DROMY..FJ{config['ring']}", "BW.DROMY..F1V", "BW.DROMY..
 config['time_interval'] = 3600
 
 # specify time interval in seconds
-config['interval'] = 120
+config['interval'] = 10
 
 # set if amplitdes are corrected with envelope
 config['correct_amplitudes'] = False
@@ -62,10 +69,10 @@ config['correct_amplitudes'] = False
 config['prewhitening'] = 0.001
 
 # interval buffer (before and after) in seconds
-config['ddt'] = 60
+config['ddt'] = 1000
 
 # frequency band (minus and plus)
-config['fband'] = 2 # 10
+config['fband'] = 1 # 10
 
 # specify cm filter value for backscatter correction
 config['cm_value'] = 1.033
@@ -75,6 +82,7 @@ config['ring_sagnac'] = {"U":303.05, "V":447.5, "W":447.5, "Z":553.5}
 config['nominal_sagnac'] = config['ring_sagnac'][config['ring']]
 
 # specify path to Sagnac data
+# config['path_to_data'] = data_path+"sagnac_frequency/data/compare_methods/"
 config['path_to_data'] = data_path+"sagnac_frequency/data/"
 
 # specify path to output figures
@@ -82,6 +90,27 @@ config['path_to_figs'] = data_path+"sagnac_frequency/figures/"
 
 # specify path to sds data archive
 config['path_to_sds'] = archive_path+"romy_archive/"
+
+# specify amount of cpu kernels to use for parallel processing
+config['n_cpu'] = 3
+
+# select if progress bar is shown
+config['show_progress'] = True
+
+# select if info is printed
+config['verbose'] = False
+
+# ______________
+# automatic settings
+
+# set a label
+if config['correct_amplitudes']:
+    config['alabel'] = "_CA"
+else:
+    config['alabel'] = ""
+
+config['alabel'] = "_1000"
+
 
 # ______________________________________
 # methods
@@ -136,7 +165,8 @@ def __load_romy_raw_data(seed, tbeg, tend, path_to_sds):
 
     from obspy import Stream, UTCDateTime
 
-    print(f" -> loading {seed}...")
+    if config['verbose']:
+        print(f" -> loading {seed}...")
 
     try:
         st00 = __read_sds(path_to_sds, seed, tbeg,tend, data_format='MSEED')
@@ -286,7 +316,12 @@ def __sine_fit(st0, nominal_sagnac, fband=2, Tinterval=20, Toverlap=2, plot=True
         n1 = n1 + Nsamples - Noverlap
         n2 = n2 + Nsamples - Noverlap
 
-    return time, freq, amps, phas
+    # check size
+    for arr in [time, freq, amps, phas]:
+        if len(arr) > 1:
+            print(f"-> output longer than expected! Windowing does not work properly!")
+
+    return time[0], freq[0], amps[0], phas[0]
 
 def __hilbert_frequency_estimator(st, nominal_sagnac, fband=10, cut=0):
 
@@ -445,10 +480,11 @@ def __merge_backscatter_data(tbeg, tend, ring, path_to_data):
     df = DataFrame()
     for dat in date_range(t1, t2):
 
-        print(str(dat)[:11])
+        if config['verbose']:
+            print(str(dat)[:11])
 
         dat_str = str(dat)[:10].replace("-", "")
-        file = f"FJ{ring}_{dat_str}_backscatter120.pkl"
+        file = f"FJ{ring}_{dat_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}.pkl"
 
         if not os.path.isfile(path_to_data+file):
             process = True
@@ -461,12 +497,13 @@ def __merge_backscatter_data(tbeg, tend, ring, path_to_data):
 
         if process:
 
-            _path = data_path+"sagnac_frequency/data/"
+            # _path = data_path+"sagnac_frequency/data/"
+            _path = config['path_to_data']
 
             out = DataFrame()
             for m in range(24):
                 hour = str(m).rjust(2, '0')+":00:00"
-                filename = f"FJ{ring}_{dat_str}_{hour}_backscatter120.pkl"
+                filename = f"FJ{ring}_{dat_str}_{hour}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}.pkl"
                 try:
                     _df = read_pickle(_path+filename)
                     out = concat([out, _df])
@@ -475,8 +512,8 @@ def __merge_backscatter_data(tbeg, tend, ring, path_to_data):
                     continue
 
             if not out.empty:
-                print(f" -> write to: {_path}backscatter/FJ{ring}_{dat_str}_backscatter120.pkl")
-                out.to_pickle(f"{_path}backscatter/FJ{ring}_{dat_str}_backscatter120.pkl")
+                print(f" -> write to: {_path}backscatter/FJ{ring}_{dat_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}.pkl")
+                out.to_pickle(f"{_path}backscatter/FJ{ring}_{dat_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}.pkl")
 
                 # move file to tmp files
                 try:
@@ -494,6 +531,128 @@ def __merge_backscatter_data(tbeg, tend, ring, path_to_data):
 
     df.reset_index(inplace=True)
 
+def processing(arg):
+
+    _tbeg, _tend = arg
+
+    # for _tbeg, _tend in hours:
+
+    # load data
+    sagn = __load_romy_raw_data(config['seeds'][0], _tbeg-2*config['ddt'], _tend+2*config['ddt'], config['path_to_sds'])
+    mon1 = __load_romy_raw_data(config['seeds'][1], _tbeg-2*config['ddt'], _tend+2*config['ddt'], config['path_to_sds'])
+    mon2 = __load_romy_raw_data(config['seeds'][2], _tbeg-2*config['ddt'], _tend+2*config['ddt'], config['path_to_sds'])
+
+    # get time intervals for iteration
+    times = __get_time_intervals(_tbeg, _tend, interval_seconds=config['interval'], interval_overlap=0)
+
+    # overall samples
+    NN = len(times)
+
+    # prepare output arrays
+    fs, ac, dc, ph, st = np.ones(NN)*np.nan, np.ones(NN)*np.nan, np.ones(NN)*np.nan, np.ones(NN)*np.nan, np.ones(NN)*np.nan
+
+    ph_wrap = np.ones(NN)*np.nan
+
+    # prepare output dataframe
+    out_df = DataFrame()
+    out_df['time1'] = list(zip(*times))[0]
+    out_df['time2'] = list(zip(*times))[1]
+
+    for _k, _st in enumerate([sagn, mon1, mon2]):
+
+        if config['verbose']:
+            print(" -> processing ", _k, "...")
+
+        for _n, (t1, t2) in enumerate(times):
+
+            # _dat = _st.copy().trim(t1, t2)
+            _dat = _st.copy().trim(t1-config['ddt'], t2+config['ddt'])
+
+
+            # estimate AC and DC values in frequency domain
+            fs[_n], ac[_n], dc[_n], ph[_n] = __get_fft_values(_dat[0].data,
+                                                                _dat[0].stats.delta,
+                                                                config['nominal_sagnac']
+                                                                )
+
+            # correct amplitudes with envelope
+            if config['correct_amplitudes']:
+                for tr in _dat:
+                    # scale by envelope
+                    env = abs(hilbert(tr.data)) + config['prewhitening']
+                    tr.data = tr.data / env
+
+            if config['mode'] == "hilbert":
+                # estimate instantaneous frequency average via hilbert
+                t, fs[_n], _, st[_n] = __hilbert_frequency_estimator(_dat,
+                                                                        config['nominal_sagnac'],
+                                                                        fband=config['fband'],
+                                                                        cut=config['ddt']
+                                                                        )
+
+            elif config['mode'] == "sine":
+                # estimate instantaneous frequency average via sine fit
+                t, fs[_n], _, st[_n] = __sine_fit(_dat,
+                                                    config['nominal_sagnac'],
+                                                    fband=config['fband'],
+                                                    Tinterval=config['interval']+2*config['ddt'],
+                                                    Toverlap=0,
+                                                    plot=False
+                                                    )
+
+            # estimate DC and AC based on time series (time domain)
+            # dc[_n] = np.mean(_dat)
+            # dc[_n] = np.median(_dat)
+            # ac[_n] = np.percentile(_dat[0].data, 99.9) - np.percentile(_dat[0].data, 100-99.9)
+
+        # store wrapped phase
+        ph_wrap = ph
+
+        # store unwrapped phase
+        ph = np.unwrap(ph)
+
+        # fill output dataframe
+        if _k == 0:
+            out_df['fj_fs'], out_df['fj_ac'], out_df['fj_dc'], out_df['fj_ph'], out_df['fj_st'] = fs, ac, dc, ph, st
+            out_df['fj_phw'] = ph_wrap
+        elif _k == 1:
+            out_df['f1_fs'], out_df['f1_ac'], out_df['f1_dc'], out_df['f1_ph'], out_df['f1_st'] = fs, ac, dc, ph, st
+            out_df['f1_phw'] = ph_wrap
+        elif _k == 2:
+            out_df['f2_fs'], out_df['f2_ac'], out_df['f2_dc'], out_df['f2_ph'], out_df['f2_st'] = fs, ac, dc, ph, st
+            out_df['f2_phw'] = ph_wrap
+
+    # prepare values for backscatter correction
+
+    # AC/DC ratios
+    m01 = out_df.f1_ac / out_df.f1_dc
+    m02 = out_df.f2_ac / out_df.f2_dc
+
+    # phase difference
+    phase0 = out_df.f1_ph - out_df.f2_ph
+
+    # obseved Sagnac frequency with backscatter
+    w_obs = out_df.fj_fs
+
+    # apply backscatter correction
+    out_df['w_s'], out_df['bscorrection'], out_df['term'] = __backscatter_correction(m01, m02,
+                                                                                        phase0,
+                                                                                        w_obs,
+                                                                                        config['nominal_sagnac'],
+                                                                                        cm_filter_factor=config['cm_value'],
+                                                                                        )
+
+    # store data
+    date_str = f"{_tbeg.year}{str(_tbeg.month).rjust(2,'0')}{str(_tbeg.day).rjust(2,'0')}"
+    time_str = f"{str(_tbeg.time).split('.')[0]}"
+
+    out_df.to_pickle(config['path_to_data']+f"FJ{config['ring']}_{date_str}_{time_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}.pkl")
+
+    if config['verbose']:
+        print(f" -> writing: {config['path_to_data']}FJ{config['ring']}_{date_str}_{time_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}.pkl")
+
+
+
 # _____________________________________________________________________________________
 
 def main(config):
@@ -501,120 +660,21 @@ def main(config):
     # hourly data because much data for memory
     hours = __get_time_intervals(config['tbeg'], config['tend'], interval_seconds=config['time_interval'], interval_overlap=0)
 
-    for _tbeg, _tend in hours:
+    # launch parallel processes
+    with mp.Pool(processes=config['n_cpu']) as pool:
 
-        # load data
-        sagn = __load_romy_raw_data(config['seeds'][0], _tbeg-2*config['ddt'], _tend+2*config['ddt'], config['path_to_sds'])
-        mon1 = __load_romy_raw_data(config['seeds'][1], _tbeg-2*config['ddt'], _tend+2*config['ddt'], config['path_to_sds'])
-        mon2 = __load_romy_raw_data(config['seeds'][2], _tbeg-2*config['ddt'], _tend+2*config['ddt'], config['path_to_sds'])
+        if config['show_progress']:
+            list(tqdm(pool.imap_unordered(processing, hours), total=len(hours)))
+        else:
+            list(pool.imap_unordered(processing, hours))
 
-        # get time intervals for iteration
-        times = __get_time_intervals(_tbeg, _tend, interval_seconds=config['interval'], interval_overlap=0)
+    pool.close()
+    pool.join()
 
-        # overall samples
-        NN = len(times)
-
-        # prepare output arrays
-        fs, ac, dc, ph, st = np.ones(NN)*np.nan, np.ones(NN)*np.nan, np.ones(NN)*np.nan, np.ones(NN)*np.nan, np.ones(NN)*np.nan
-
-        ph_wrap = np.ones(NN)*np.nan
-
-        # prepare output dataframe
-        out_df = DataFrame()
-        out_df['time1'] = list(zip(*times))[0]
-        out_df['time2'] = list(zip(*times))[1]
-
-        for _k, _st in enumerate([sagn, mon1, mon2]):
-
-            print(" -> processing ", _k, "...")
-
-            for _n, (t1, t2) in enumerate(times):
-
-                # _dat = _st.copy().trim(t1, t2)
-                _dat = _st.copy().trim(t1-config['ddt'], t2+config['ddt'])
-
-
-                # estimate AC and DC values in frequency domain
-                fs[_n], ac[_n], dc[_n], ph[_n] = __get_fft_values(_dat[0].data,
-                                                                  _dat[0].stats.delta,
-                                                                  config['nominal_sagnac']
-                                                                 )
-
-                # correct amplitudes with envelope
-                if config['correct_amplitudes']:
-                    for tr in _dat:
-                        # scale by envelope
-                        env = abs(hilbert(tr.data)) + config['prewhitening']
-                        tr.data = tr.data / env
-
-                if config['mode'] == "hilbert":
-                    # estimate instantaneous frequency average via hilbert
-                    t, fs[_n], _, st[_n] = __hilbert_frequency_estimator(_dat,
-                                                                         config['nominal_sagnac'],
-                                                                         fband=config['fband'],
-                                                                         cut=config['ddt']
-                                                                         )
-
-                elif config['mode'] == "sine":
-                    # estimate instantaneous frequency average via sine fit
-                    t, fs[_n], _, st[_n] = __sine_fit(_dat,
-                                                      config['nominal_sagnac'],
-                                                      fband=config['fband'],
-                                                      Tinterval=config['interval'],
-                                                      Toverlap=0,
-                                                      plot=False
-                                                     )
-
-                # estimate DC and AC based on time series (time domain)
-                # dc[_n] = np.mean(_dat)
-                # dc[_n] = np.median(_dat)
-                # ac[_n] = np.percentile(_dat[0].data, 99.9) - np.percentile(_dat[0].data, 100-99.9)
-
-            # store wrapped phase
-            ph_wrap = ph
-
-            # store unwrapped phase
-            ph = np.unwrap(ph)
-
-            # fill output dataframe
-            if _k == 0:
-                out_df['fj_fs'], out_df['fj_ac'], out_df['fj_dc'], out_df['fj_ph'], out_df['fj_st'] = fs, ac, dc, ph, st
-                out_df['fj_phw'] = ph_wrap
-            elif _k == 1:
-                out_df['f1_fs'], out_df['f1_ac'], out_df['f1_dc'], out_df['f1_ph'], out_df['f1_st'] = fs, ac, dc, ph, st
-                out_df['f1_phw'] = ph_wrap
-            elif _k == 2:
-                out_df['f2_fs'], out_df['f2_ac'], out_df['f2_dc'], out_df['f2_ph'], out_df['f2_st'] = fs, ac, dc, ph, st
-                out_df['f2_phw'] = ph_wrap
-
-        # prepare values for backscatter correction
-
-        # AC/DC ratios
-        m01 = out_df.f1_ac / out_df.f1_dc
-        m02 = out_df.f2_ac / out_df.f2_dc
-
-        # phase difference
-        phase0 = out_df.f1_ph - out_df.f2_ph
-
-        # obseved Sagnac frequency with backscatter
-        w_obs = out_df.fj_fs
-
-        # apply backscatter correction
-        out_df['w_s'], out_df['bscorrection'], out_df['term'] = __backscatter_correction(m01, m02,
-                                                                                         phase0,
-                                                                                         w_obs,
-                                                                                         config['nominal_sagnac'],
-                                                                                         cm_filter_factor=config['cm_value'],
-                                                                                         )
-
-        # store data
-        date_str = f"{_tbeg.year}{str(_tbeg.month).rjust(2,'0')}{str(_tbeg.day).rjust(2,'0')}"
-        time_str = f"{str(_tbeg.time).split('.')[0]}"
-        out_df.to_pickle(config['path_to_data']+f"FJ{config['ring']}_{date_str}_{time_str}_backscatter{config['interval']}.pkl")
-        print(f" -> writing: {config['path_to_data']}FJ{config['ring']}_{date_str}_{time_str}_backscatter{config['interval']}.pkl")
 
     # load hourly data files to form one data frame
-    __merge_backscatter_data(_tbeg, _tend, config['ring'], config['path_to_data'])
+    # __merge_backscatter_data(_tbeg, _tend, config['ring'], config['path_to_data'])
+    __merge_backscatter_data(config['tbeg'], config['tend'], config['ring'], config['path_to_data'])
 
 
 # ________ MAIN  ________

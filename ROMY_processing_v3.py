@@ -95,7 +95,6 @@ def __get_mlti_intervals(mlti_times, time_delta=60):
 
     return array(t1), array(t2)
 
-
 def __load_mlti(tbeg, tend, ring, path_to_archive):
 
     from obspy import UTCDateTime
@@ -126,7 +125,6 @@ def __load_mlti(tbeg, tend, ring, path_to_archive):
 
     return mlti
 
-
 def __load_lxx(tbeg, tend, path_to_archive):
 
     from obspy import UTCDateTime
@@ -154,7 +152,6 @@ def __load_lxx(tbeg, tend, path_to_archive):
     lxx = lxx[(lxx.datetime > tbeg) & (lxx.datetime < tend)]
 
     return lxx
-
 
 def __rotate_romy_ZUV_ZNE(st, inv, keep_z=True):
 
@@ -193,7 +190,6 @@ def __rotate_romy_ZUV_ZNE(st, inv, keep_z=True):
 
     return st_new
 
-
 def __write_stream_to_sds(st, cha, path_to_sds):
 
     import os
@@ -225,7 +221,6 @@ def __write_stream_to_sds(st, cha, path_to_sds):
 
     print(f" -> stored stream as: {yy}/{nn}/{ss}/{cc}.D/{nn}.{ss}.{ll}.{cc}.D.{yy}.{jj}")
 
-
 def __mlti_intervals_to_zero(dat, times, mlti_t1, mlti_t2, t_offset_sec=120):
 
     from numpy import nan, where, full, array
@@ -250,7 +245,6 @@ def __mlti_intervals_to_zero(dat, times, mlti_t1, mlti_t2, t_offset_sec=120):
     dat = where(_mask == 1, 1, dat)
 
     return dat
-
 
 def __get_trace(seed):
 
@@ -436,7 +430,7 @@ def main(config):
                                              tr_mltiU.times(reftime=config['t1'], type="utcdatetime"),
                                              mltiU_t1,
                                              mltiU_t2,
-                                             t_offset_sec=30
+                                             t_offset_sec=60
                                              )
 
     tr_mltiV = __get_trace("BW.ROMY.30.MLT")
@@ -445,7 +439,7 @@ def main(config):
                                              tr_mltiV.times(reftime=config['t1'], type="utcdatetime"),
                                              mltiV_t1,
                                              mltiV_t2,
-                                             t_offset_sec=30
+                                             t_offset_sec=60
                                              )
 
     tr_mltiZ = __get_trace("BW.ROMY.30.MLT")
@@ -454,7 +448,7 @@ def main(config):
                                              tr_mltiZ.times(reftime=config['t1'], type="utcdatetime"),
                                              mltiZ_t1,
                                              mltiZ_t2,
-                                             t_offset_sec=30
+                                             t_offset_sec=60
                                              )
 
     # make mlti trace for horizontals (since rotated and intermixed)

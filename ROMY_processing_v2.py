@@ -13,10 +13,11 @@ ROMY Processing
 import os
 import sys
 import obspy as obs
+import numpy as np
 import numpy.ma as ma
+import matplotlib.pyplot as plt
 
 from numpy import where
-from andbro__read_sds import __read_sds
 
 
 import warnings
@@ -26,17 +27,17 @@ if os.uname().nodename == 'lighthouse':
     root_path = '/home/andbro/'
     data_path = '/home/andbro/kilauea-data/'
     archive_path = '/home/andbro/freenas/'
-    bay_path = '/home/andbro/bay200/'
+    bay_path = '/home/andbro/ontap-ffb-bay200/'
 elif os.uname().nodename == 'kilauea':
     root_path = '/home/brotzer/'
     data_path = '/import/kilauea-data/'
     archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/bay200/'
-elif os.uname().nodename == 'lin-ffb-01':
+    bay_path = '/import/ontap-ffb-bay200/'
+elif os.uname().nodename in ['lin-ffb-01', 'ambrym', 'hochfelln']:
     root_path = '/home/brotzer/'
     data_path = '/import/kilauea-data/'
     archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/bay200/'
+    bay_path = '/import/ontap-ffb-bay200/'
 
 
 config = {}
@@ -46,6 +47,10 @@ config['path_to_sds'] = archive_path+"romy_archive/"
 config['path_to_sds_out'] = archive_path+"temp_archive/"
 
 config['path_to_inventory'] = root_path+"Documents/ROMY/stationxml_ringlaser/dataless/"
+
+config['path_to_figs'] = data_path+"2delete/testfigs/"
+
+config['store_figure'] = False
 
 if len(sys.argv) > 1:
     config['tbeg'] = obs.UTCDateTime(sys.argv[1])
@@ -90,7 +95,6 @@ def __get_mlti_intervals(mlti_times, time_delta=60):
 
     return array(t1), array(t2)
 
-
 def __load_mlti(tbeg, tend, ring, path_to_archive):
 
     from obspy import UTCDateTime
@@ -121,7 +125,6 @@ def __load_mlti(tbeg, tend, ring, path_to_archive):
 
     return mlti
 
-
 def __load_lxx(tbeg, tend, path_to_archive):
 
     from obspy import UTCDateTime
@@ -149,7 +152,6 @@ def __load_lxx(tbeg, tend, path_to_archive):
     lxx = lxx[(lxx.datetime > tbeg) & (lxx.datetime < tend)]
 
     return lxx
-
 
 def __rotate_romy_ZUV_ZNE(st, inv, keep_z=True):
 
@@ -188,7 +190,6 @@ def __rotate_romy_ZUV_ZNE(st, inv, keep_z=True):
 
     return st_new
 
-
 def __write_stream_to_sds(st, cha, path_to_sds):
 
     import os
@@ -220,7 +221,6 @@ def __write_stream_to_sds(st, cha, path_to_sds):
 
     print(f" -> stored stream as: {yy}/{nn}/{ss}/{cc}.D/{nn}.{ss}.{ll}.{cc}.D.{yy}.{jj}")
 
-
 def __mlti_intervals_to_zero(dat, times, mlti_t1, mlti_t2, t_offset_sec=120):
 
     from numpy import nan, where, full, array
@@ -246,7 +246,6 @@ def __mlti_intervals_to_zero(dat, times, mlti_t1, mlti_t2, t_offset_sec=120):
 
     return dat
 
-
 def __get_trace(seed):
 
     from numpy import zeros
@@ -264,8 +263,120 @@ def __get_trace(seed):
 
     return trr
 
+def despike_sta_lta(arr, df, t_lta=50, t_sta=1, threshold_upper=40, plot=False):
+
+    from obspy.signal.trigger import recursive_sta_lta
+    from obspy.signal.trigger import classic_sta_lta
+    from obspy.signal.trigger import plot_trigger
+    import numpy as np
+
+    def smooth(y, npts):
+        '''
+        moving average of 1d signal for n samples
+        '''
+        win = np.hanning(npts)
+        y_smooth = np.convolve(y, win/np.sum(win), mode='same')
+        y_smooth[:npts//2] = np.nan
+        y_smooth[-npts//2:] = np.nan
+        return y_smooth
+
+    # apply sta lta
+    # cft = classic_sta_lta(arr, int(t_sta * df), int(t_lta * df))
+
+    cft = recursive_sta_lta(arr, int(t_sta * df), int(t_lta * df))
+
+    # plot trigger result
+    if plot:
+        plot_trigger(arr, cft, threshold_upper, 1, show=plot)
+
+    # create mask from triggers
+    spikes = np.where(cft < threshold_upper, 0, cft)
+    spikes = np.where(spikes > threshold_upper, 1, spikes)
+
+    # create mask with nan
+    mask2 = where(spikes == 1, np.nan, spikes)
+    mask2 += 1
+
+    mask2 = smooth(mask2, 20)
+
+    mask1 = np.nan_to_num(mask2, nan=0)
+
+    return spikes, mask1, mask2
+
+def __checkup_plot(_st, _masks, _spikes):
+
+    fig, ax = plt.subplots(3, 1, sharex=True, figsize=(15, 12))
+
+    plt.subplots_adjust(hspace=0.15)
+
+    for i, tr in enumerate(_st):
+
+        cha = tr.stats.channel[-1]
+
+        data_before = tr.copy().data
+        data_after = data_before*_masks[cha]
+
+        ax[i].plot(_spikes[tr.stats.channel[-1]], color="grey", alpha=0.6, zorder=1, label="spikes")
+        ax[i].plot(data_before, label=f"{cha} before")
+        ax[i].plot(data_after, label=f" {cha} after")
+
+        ax[i].set_ylim(-np.nanmax(abs(data_after))*1.1, np.nanmax(abs(data_after))*1.1)
+
+        ax[i].legend(loc=1)
+
+    # plt.show();
+    return fig
+
+def __read_sds(path_to_archive, seed, tbeg, tend, data_format="MSEED"):
+
+    '''
+    VARIABLES:
+     - path_to_archive
+     - seed
+     - tbeg, tend
+     - data_format
+
+    DEPENDENCIES:
+     - from obspy.core import UTCDateTime
+     - from obspy.clients.filesystem.sds import Client
+
+    OUTPUT:
+     - stream
+
+    EXAMPLE:
+    >>> st = __read_sds(path_to_archive, seed, tbeg, tend, data_format="MSEED")
+
+    '''
+
+    import os
+    from obspy.core import UTCDateTime, Stream
+    from obspy.clients.filesystem.sds import Client
+
+    tbeg, tend = UTCDateTime(tbeg), UTCDateTime(tend)
+
+    if not os.path.exists(path_to_archive):
+        print(f" -> {path_to_archive} does not exist!")
+        return
+
+    ## separate seed id
+    net, sta, loc, cha = seed.split(".")
+
+    ## define SDS client
+    client = Client(path_to_archive, sds_type='D', format=data_format)
+
+    ## read waveforms
+    try:
+        st = client.get_waveforms(net, sta, loc, cha, tbeg, tend, merge=-1)
+    except:
+        print(f" -> failed to obtain waveforms!")
+        st = Stream()
+
+    return st
+
 
 def main(config):
+
+    print(f"processing: {config['tbeg'].date} ...")
 
     # load MLTI logs
     mltiU = __load_mlti(config['t1'], config['t2'], "U", archive_path)
@@ -295,10 +406,9 @@ def main(config):
     # check if merging is required
     if len(st0) > 3:
         print(f" -> merging required!")
-        st0.merge(fill_value="interpolate")
+        st0 = st0.merge(fill_value="interpolate")
 
-    # remove trend
-    st0 = st0.detrend("linear")
+    st0 = st0.trim(config['tbeg'], config['tend'])
 
     # check if data has same length
     for tr in st0:
@@ -307,11 +417,14 @@ def main(config):
             tr.data = tr.data[:config['Nexpected']]
             # print(f" -> adjust length: {tr.stats.station}.{tr.stats.channel}:  {Nreal} -> {config['Nexpected']}")
 
+    # remove trend
+    st0 = st0.detrend("linear")
+
     # rotate streams
     st0 = __rotate_romy_ZUV_ZNE(st0, romy_inv, keep_z=True)
 
     # prepare MLTI masks
-    tr_mltiU = __get_trace("BW.ROMY.30.MLT")
+    tr_mltiU = __get_trace("BW.ROMY.40.MLT")
 
     tr_mltiU.data = __mlti_intervals_to_zero(tr_mltiU.data,
                                              tr_mltiU.times(reftime=config['t1'], type="utcdatetime"),
@@ -320,7 +433,7 @@ def main(config):
                                              t_offset_sec=60
                                              )
 
-    tr_mltiV = __get_trace("BW.ROMY.30.MLT")
+    tr_mltiV = __get_trace("BW.ROMY.40.MLT")
 
     tr_mltiV.data = __mlti_intervals_to_zero(tr_mltiV.data,
                                              tr_mltiV.times(reftime=config['t1'], type="utcdatetime"),
@@ -329,7 +442,7 @@ def main(config):
                                              t_offset_sec=60
                                              )
 
-    tr_mltiZ = __get_trace("BW.ROMY.30.MLT")
+    tr_mltiZ = __get_trace("BW.ROMY.40.MLT")
 
     tr_mltiZ.data = __mlti_intervals_to_zero(tr_mltiZ.data,
                                              tr_mltiZ.times(reftime=config['t1'], type="utcdatetime"),
@@ -345,7 +458,7 @@ def main(config):
     tr_mltiH.data = tr_mltiU.data + tr_mltiV.data
 
     # remove periods with value 2 due to summation
-    tr_mltiH.data = where(tr_mltiH.data > 1, 1, tr_mltiH.data)
+    tr_mltiH.data = where(tr_mltiH.data >= 1, 1, tr_mltiH.data)
 
     # prepare maintenance mask
 #     lxx_t1, lxx_t2 = __get_mlti_intervals(lxx.datetime)
@@ -363,17 +476,21 @@ def main(config):
     outZ = obs.Stream()
 
     outZ += st0.select(component="Z").copy()
-    outZ.select(component="Z")[0].stats.location = "30"
+    outZ.select(component="Z")[0].stats.location = "40"
 
-    # create masked array
     data = outZ.select(component="Z")[0].data
     mask = tr_mltiZ.data
 
     if len(data) != len(mask):
         mask = mask[:len(data)]
-    outZ.select(component="Z")[0].data = ma.masked_array(data, mask=mask)
 
-    # adjust time period
+    # apply mlti mask
+    dat1 = ma.masked_array(data, mask=mask)
+
+    # overwrite data
+    outZ.select(component="Z")[0].data = dat1
+
+    # trim to defined interval
     outZ = outZ.trim(config['tbeg'], config['tend'], nearest_sample=False)
 
     # split into several traces since masked array cannot be stored as mseed
@@ -385,17 +502,21 @@ def main(config):
     outN = obs.Stream()
 
     outN += st0.select(component="N").copy()
-    outN.select(component="N")[0].stats.location = "30"
+    outN.select(component="N")[0].stats.location = "40"
 
-    # create masked array
     data = outN.select(component="N")[0].data
     mask = tr_mltiH.data
 
     if len(data) != len(mask):
         mask = mask[:len(data)]
-    outN.select(component="N")[0].data = ma.masked_array(data, mask=mask)
 
-    # adjust time period
+    # apply mlti mask
+    dat1 = ma.masked_array(data, mask=mask)
+
+    # overwrite data
+    outN.select(component="N")[0].data = dat1
+
+    # trim to defined interval
     outN = outN.trim(config['tbeg'], config['tend'], nearest_sample=False)
 
     # split into several traces since masked array cannot be stored as mseed
@@ -407,15 +528,19 @@ def main(config):
     outE = obs.Stream()
 
     outE += st0.select(component="E").copy()
-    outE.select(component="E")[0].stats.location = "30"
+    outE.select(component="E")[0].stats.location = "40"
 
-    # create masked array
     data = outE.select(component="E")[0].data
     mask = tr_mltiH.data
 
     if len(data) != len(mask):
         mask = mask[:len(data)]
-    outE.select(component="E")[0].data = ma.masked_array(data, mask=mask)
+
+    # apply mlti mask
+    dat1 = ma.masked_array(data, mask=mask)
+
+    # overwrite data
+    outE.select(component="E")[0].data = dat1
 
     # adjust time period
     outE = outE.trim(config['tbeg'], config['tend'], nearest_sample=False)
@@ -424,6 +549,7 @@ def main(config):
     outE = outE.split()
 
     __write_stream_to_sds(outE, "BJE", config['path_to_sds_out'])
+
 
 
 

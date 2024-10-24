@@ -26,17 +26,17 @@ if os.uname().nodename == 'lighthouse':
     root_path = '/home/andbro/'
     data_path = '/home/andbro/kilauea-data/'
     archive_path = '/home/andbro/freenas/'
-    bay_path = '/home/andbro/bay200/'
+    bay_path = '/home/andbro/ontap-ffb-bay200/'
 elif os.uname().nodename == 'kilauea':
     root_path = '/home/brotzer/'
     data_path = '/import/kilauea-data/'
     archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/bay200/'
-elif os.uname().nodename == 'lin-ffb-01':
+    bay_path = '/import/ontap-ffb-bay200/'
+elif os.uname().nodename in ['lin-ffb-01', 'ambrym', 'hochfelln']:
     root_path = '/home/brotzer/'
     data_path = '/import/kilauea-data/'
     archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/bay200/'
+    bay_path = '/import/ontap-ffb-bay200/'
 
 
 config = {}
@@ -187,12 +187,48 @@ def main(config):
 
     # ffbi.plot(equal_scale=False);
 
-    ffbi = ffbi.resample(1.0, no_filter=False)
+    # _______________________________________________________________________
+    # write 20Hz output
 
     # write output O
     out = obs.Stream()
 
     out += ffbi.select(component="O").copy()
+    out.select(component="O")[0].stats.location = "30"
+    out.select(component="O")[0].stats.channel = "BDO"
+
+    # adjust time period
+    out = out.trim(config['tbeg'], config['tend'], nearest_sample=False)
+
+    # split into several traces since masked array cannot be stored as mseed
+    out = out.split()
+
+    __write_stream_to_sds(out, "BDO", config['path_to_sds_out'])
+
+    # write output F
+    out = obs.Stream()
+
+    out += ffbi.select(component="F").copy()
+    out.select(component="F")[0].stats.location = "30"
+    out.select(component="F")[0].stats.channel = "BDF"
+
+    # adjust time period
+    out = out.trim(config['tbeg'], config['tend'], nearest_sample=False)
+
+    # split into several traces since masked array cannot be stored as mseed
+    out = out.split()
+
+    __write_stream_to_sds(out, "BDF", config['path_to_sds_out'])
+
+    # ________________________________________________________________________
+    # write 1Hz output
+
+    ffbi01 = ffbi.copy().resample(1.0, no_filter=False)
+
+    # write output O
+    out = obs.Stream()
+
+    out += ffbi01.select(component="O").copy()
     out.select(component="O")[0].stats.location = "30"
     out.select(component="O")[0].stats.channel = "LDO"
 
@@ -207,7 +243,7 @@ def main(config):
     # write output F
     out = obs.Stream()
 
-    out += ffbi.select(component="F").copy()
+    out += ffbi01.select(component="F").copy()
     out.select(component="F")[0].stats.location = "30"
     out.select(component="F")[0].stats.channel = "LDF"
 
@@ -218,6 +254,7 @@ def main(config):
     out = out.split()
 
     __write_stream_to_sds(out, "LDF", config['path_to_sds_out'])
+
 
 
 if __name__ == "__main__":

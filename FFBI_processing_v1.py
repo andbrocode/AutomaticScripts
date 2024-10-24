@@ -181,18 +181,57 @@ def main(config):
             tr.remove_response(ffbi_inv, water_level=10)
 
 
-        ffbi = ffbi.resample(1.0, no_filter=True)
+        #ffbi = ffbi.resample(1.0, no_filter=True)
 
     ffbi.merge(fill_value="interpolate")
 
     # ffbi.plot(equal_scale=False);
 
-    ffbi = ffbi.resample(1.0, no_filter=False)
+    # _______________________________________________________________________
+    # write 20Hz output
 
     # write output O
     out = obs.Stream()
 
     out += ffbi.select(component="O").copy()
+    out.select(component="O")[0].stats.location = "30"
+    out.select(component="O")[0].stats.channel = "BDO"
+
+    # adjust time period
+    out = out.trim(config['tbeg'], config['tend'], nearest_sample=False)
+
+    # split into several traces since masked array cannot be stored as mseed
+    out = out.split()
+
+    __write_stream_to_sds(out, "BDO", config['path_to_sds_out'])
+
+    # write output F
+    out = obs.Stream()
+
+    out += ffbi.select(component="F").copy()
+    out.select(component="F")[0].stats.location = "30"
+    out.select(component="F")[0].stats.channel = "BDF"
+
+    # adjust time period
+    out = out.trim(config['tbeg'], config['tend'], nearest_sample=False)
+
+    # split into several traces since masked array cannot be stored as mseed
+    out = out.split()
+
+    __write_stream_to_sds(out, "BDF", config['path_to_sds_out'])
+
+    # ________________________________________________________________________
+    # write 1Hz output
+
+
+    ffbi01 = ffbi.copy()
+    ffbi01 = ffbi01.decimate(10)
+    ffbi01 = ffbi01.decimate(2)
+
+    # write output O
+    out = obs.Stream()
+
+    out += ffbi01.select(component="O").copy()
     out.select(component="O")[0].stats.location = "30"
     out.select(component="O")[0].stats.channel = "LDO"
 
@@ -207,7 +246,7 @@ def main(config):
     # write output F
     out = obs.Stream()
 
-    out += ffbi.select(component="F").copy()
+    out += ffbi01.select(component="F").copy()
     out.select(component="F")[0].stats.location = "30"
     out.select(component="F")[0].stats.channel = "LDF"
 
@@ -218,6 +257,7 @@ def main(config):
     out = out.split()
 
     __write_stream_to_sds(out, "LDF", config['path_to_sds_out'])
+
 
 
 if __name__ == "__main__":

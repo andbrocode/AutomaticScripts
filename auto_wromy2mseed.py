@@ -22,13 +22,16 @@ from numpy import array, nan
 ## configurations
 
 # pi_num = os.uname()[1][-2:]
-pi_num = "04"
+# pi_num = "04"
 
+# hand over pi number [1-9]
 pi_num = sys.argv[1]
 
 ## date
-#dat = UTCDateTime(str(sys.argv[1]))
-dat = UTCDateTime.now() - 86400 ## date for yesterday
+if len(sys.argv) > 1:
+    dat = UTCDateTime(str(sys.argv[2]))
+else:
+    dat = UTCDateTime.now() - 86400 ## date for yesterday
 
 year = str(dat.year)
 doy = str(dat.julday).rjust(3,"0")

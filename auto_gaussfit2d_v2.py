@@ -290,7 +290,7 @@ def main():
                     continue
 
 #            print(popt)
-            
+
             # get diagonal values
             pcov_diag = np.diag(pcov)
 
@@ -300,7 +300,7 @@ def main():
             # get maximum of 2d fit
             y_max, x_max = np.argwhere(im_fitted == im_fitted.max())[0]
             print(f" -> X: {x_max}  Y: {y_max}")
-            
+
             date_str = file.split('.')[0].split('_')[0]
             time_str = file.split('.')[0].split('_')[1]
 
@@ -344,10 +344,11 @@ def main():
                 if config['store_figures']:
                     if not os.path.isdir(config['path_to_outdata']+"outfigs/"):
                         os.mkdir(config['path_to_outdata']+"outfigs/")
-
-                    fig = __makeplot(im, im_fitted, x_max, y_max, x, y, amax=popt[0]*1.5);
-
-                    fig.savefig(config['path_to_outdata']+"outfigs/"+f"{file[:-4]}_mod.png", format="png", dpi=150, bbox_inches='tight');
+                    try:
+                        fig = __makeplot(im, im_fitted, x_max, y_max, x, y, amax=popt[0]*10)
+                        fig.savefig(config['path_to_outdata']+"outfigs/"+f"{file[:-4]}_mod.png", format="png", dpi=150, bbox_inches='tight');
+                    except Exception as e:
+                        print(e)
 
             _gc = gc.collect();
 
