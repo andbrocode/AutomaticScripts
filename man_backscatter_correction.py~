@@ -45,17 +45,6 @@ config = {}
 config['tbeg'] = UTCDateTime("2024-10-23 00:00")
 config['tend'] = UTCDateTime("2024-10-24 00:00")
 
-# project name
-config['project'] = "_testrun_10"
-
-# select if progress bar is shown
-config['show_progress'] = True
-
-# select if info is printed
-config['verbose'] = True
-
-# store configurations as file
-config['store_config'] = True
 
 # extract ring
 # config['ring'] = sys.argv[2]
@@ -80,7 +69,7 @@ config['correct_amplitudes'] = True
 config['prewhitening'] = 0.001
 
 # interval buffer (before and after) in seconds
-config['ddt'] = 200
+config['ddt'] = 1000
 
 # frequency band (minus and plus)
 config['fband'] = 1 # 10
@@ -93,8 +82,8 @@ config['ring_sagnac'] = {"U":303.05, "V":447.5, "W":447.5, "Z":553.5}
 config['nominal_sagnac'] = config['ring_sagnac'][config['ring']]
 
 # specify path to Sagnac data
-config['path_to_data'] = data_path+"sagnac_frequency/data/compare_methods/"
-#config['path_to_data'] = data_path+"sagnac_frequency/data/"
+# config['path_to_data'] = data_path+"sagnac_frequency/data/compare_methods/"
+config['path_to_data'] = data_path+"sagnac_frequency/data/"
 
 # specify path to output figures
 config['path_to_figs'] = data_path+"sagnac_frequency/figures/"
@@ -105,6 +94,12 @@ config['path_to_sds'] = archive_path+"romy_archive/"
 # specify amount of cpu kernels to use for parallel processing
 config['n_cpu'] = 3
 
+# select if progress bar is shown
+config['show_progress'] = True
+
+# select if info is printed
+config['verbose'] = False
+
 # ______________
 # automatic settings
 
@@ -114,21 +109,11 @@ if config['correct_amplitudes']:
 else:
     config['alabel'] = ""
 
+config['alabel'] = "_1000"
 
 
 # ______________________________________
 # methods
-
-def __save_to_pickle(obj, path, name):
-
-    import os
-    import pickle
-
-    ofile = open(path+name+".pkl", 'wb')
-    pickle.dump(obj, ofile)
-
-    if os.path.isfile(path+name+".pkl"):
-        print(f"\n -> created:  {path}{name}.pkl")
 
 def __read_sds(path_to_archive, seed, tbeg, tend, data_format="MSEED"):
 
@@ -499,7 +484,7 @@ def __merge_backscatter_data(tbeg, tend, ring, path_to_data):
             print(str(dat)[:11])
 
         dat_str = str(dat)[:10].replace("-", "")
-        file = f"FJ{ring}_{dat_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}{config['project']}.pkl"
+        file = f"FJ{ring}_{dat_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}.pkl"
 
         if not os.path.isfile(path_to_data+file):
             process = True
@@ -518,7 +503,7 @@ def __merge_backscatter_data(tbeg, tend, ring, path_to_data):
             out = DataFrame()
             for m in range(24):
                 hour = str(m).rjust(2, '0')+":00:00"
-                filename = f"FJ{ring}_{dat_str}_{hour}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}{config['project']}.pkl"
+                filename = f"FJ{ring}_{dat_str}_{hour}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}.pkl"
                 try:
                     _df = read_pickle(_path+filename)
                     out = concat([out, _df])
@@ -526,21 +511,15 @@ def __merge_backscatter_data(tbeg, tend, ring, path_to_data):
                     print(f" -> failed: {_path}{filename}")
                     continue
 
+            if not out.empty:
+                print(f" -> write to: {_path}backscatter/FJ{ring}_{dat_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}.pkl")
+                out.to_pickle(f"{_path}backscatter/FJ{ring}_{dat_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}.pkl")
+
                 # move file to tmp files
                 try:
                     shutil.move(_path+filename, _path+f"tmp_backscatter_R{ring}/"+filename)
                 except:
                     print(f" -> failed to move file {filename}")
-
-            if not out.empty:
-                print(f" -> write to: {_path}backscatter/FJ{ring}_{dat_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}{config['project']}.pkl")
-                out.to_pickle(f"{_path}backscatter/FJ{ring}_{dat_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}{config['project']}.pkl")
-
-                # # move file to tmp files
-                # try:
-                #     shutil.move(_path+filename, _path+f"tmp_backscatter_R{ring}/"+filename)
-                # except:
-                #     print(f" -> failed to move file {filename}")
             else:
                 continue
 
@@ -667,19 +646,16 @@ def processing(arg):
     date_str = f"{_tbeg.year}{str(_tbeg.month).rjust(2,'0')}{str(_tbeg.day).rjust(2,'0')}"
     time_str = f"{str(_tbeg.time).split('.')[0]}"
 
-    out_df.to_pickle(config['path_to_data']+f"FJ{config['ring']}_{date_str}_{time_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}{config['project']}.pkl")
+    out_df.to_pickle(config['path_to_data']+f"FJ{config['ring']}_{date_str}_{time_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}.pkl")
 
     if config['verbose']:
-        print(f" -> writing: {config['path_to_data']}FJ{config['ring']}_{date_str}_{time_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}{config['project']}.pkl")
+        print(f" -> writing: {config['path_to_data']}FJ{config['ring']}_{date_str}_{time_str}_backscatter_T{config['interval']}_{config['mode']}{config['alabel']}.pkl")
 
 
 
 # _____________________________________________________________________________________
 
 def main(config):
-
-    # store configurations
-    __save_to_pickle(config, config['path_to_data'], f"config{config['project']}")
 
     # hourly data because much data for memory
     hours = __get_time_intervals(config['tbeg'], config['tend'], interval_seconds=config['time_interval'], interval_overlap=0)
