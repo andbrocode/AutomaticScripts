@@ -487,8 +487,12 @@ def main(config):
     # apply mlti mask
     dat1 = ma.masked_array(data, mask=mask)
 
-    # overwrite data
-    outZ.select(component="Z")[0].data = dat1
+    # check if all data is masked -> replace with nan values
+    if dat1.mask.all():
+        outZ.select(component="Z")[0].data = np.nan*np.ones(len(dat1))
+    else:
+        # otherwise overwrite data with masked data
+        outZ.select(component="Z")[0].data = dat1
 
     # trim to defined interval
     outZ = outZ.trim(config['tbeg'], config['tend'], nearest_sample=False)
@@ -513,8 +517,12 @@ def main(config):
     # apply mlti mask
     dat1 = ma.masked_array(data, mask=mask)
 
-    # overwrite data
-    outN.select(component="N")[0].data = dat1
+    # check if all data is masked -> replace with nan values
+    if dat1.mask.all():
+        outN.select(component="N")[0].data = np.nan*np.ones(len(dat1))
+    else:
+        # otherwise overwrite data with masked data
+        outN.select(component="N")[0].data = dat1
 
     # trim to defined interval
     outN = outN.trim(config['tbeg'], config['tend'], nearest_sample=False)
@@ -539,8 +547,12 @@ def main(config):
     # apply mlti mask
     dat1 = ma.masked_array(data, mask=mask)
 
-    # overwrite data
-    outE.select(component="E")[0].data = dat1
+    # check if all data is masked -> replace with nan values
+    if dat1.mask.all():
+        outE.select(component="E")[0].data = np.nan*np.ones(len(dat1))
+    else:
+        # otherwise overwrite data with masked data
+        outE.select(component="E")[0].data = dat1
 
     # adjust time period
     outE = outE.trim(config['tbeg'], config['tend'], nearest_sample=False)

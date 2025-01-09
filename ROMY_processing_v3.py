@@ -543,8 +543,12 @@ def main(config):
     # apply spikes mask
     dat2 = ma.masked_array(dat1, mask=spikes["Z"])
 
-    # overwrite data
-    outZ.select(component="Z")[0].data = dat2
+    # check if all data is masked -> replace with nan values
+    if dat2.mask.all():
+        outZ.select(component="Z")[0].data = np.nan*np.ones(len(dat2))
+    else:
+        # otherwise overwrite data with masked data
+        outZ.select(component="Z")[0].data = dat2
 
     # trim to defined interval
     outZ = outZ.trim(config['tbeg'], config['tend'], nearest_sample=False)
@@ -573,9 +577,13 @@ def main(config):
     # apply spikes mask
     dat2 = ma.masked_array(dat1, mask=spikes["N"])
 
-    # overwrite data
-    outN.select(component="N")[0].data = dat2
-
+    # check if all data is masked -> replace with nan values
+    if dat2.mask.all():
+        outN.select(component="N")[0].data = np.nan*np.ones(len(dat2))
+    else:
+        # otherwise overwrite data with masked data
+        outN.select(component="N")[0].data = dat2
+    
     # trim to defined interval
     outN = outN.trim(config['tbeg'], config['tend'], nearest_sample=False)
 
@@ -602,8 +610,12 @@ def main(config):
     # apply spikes mask
     dat2 = ma.masked_array(dat1, mask=spikes["E"])
 
-    # overwrite data
-    outE.select(component="E")[0].data = dat2
+    # check if all data is masked -> replace with nan values
+    if dat2.mask.all():
+        outE.select(component="E")[0].data = np.nan*np.ones(len(dat2))
+    else:
+        # otherwise overwrite data with masked data
+        outE.select(component="E")[0].data = dat2
 
     # adjust time period
     outE = outE.trim(config['tbeg'], config['tend'], nearest_sample=False)
