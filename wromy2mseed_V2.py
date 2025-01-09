@@ -14,7 +14,7 @@ import os
 from obspy import Stream, Trace, UTCDateTime
 from pandas import read_csv, DataFrame, merge
 from datetime import datetime
-from numpy import array, nan
+from numpy import array, nan, round
 
 ## _______________________________
 ## configurations
@@ -90,7 +90,7 @@ for file in files:
     except:
         print(f" -> failed to load data: {file}")
         continue
-    
+
     ## check data sample size
     if df.shape[0] != 86400:
         print(f"-> {file} - Error: size not 86400 but {df.shape[0]}")
@@ -153,7 +153,20 @@ for file in files:
 
     __write_stream_to_sds(st0, path_to_sds)
 
+    # prepare ultra low period stream
+    st2 = st0.copy()
+
+    for tr in st2:
+
+        tr.stats.channel = f'U{tr.stats.channel[1:]}'
+
+        # tr = tr.filter("lowpass", freq=0.005, corners=4, zerophase=True)
+        tr = tr.decimate(5, no_filter=True)
+        tr = tr.decimate(5, no_filter=True)
+        tr = tr.decimate(2, no_filter=True)
+
+    __write_stream_to_sds(st2, path_to_sds)
+
+
 ## _______________________________
 ## End of File
-
-# In[]

@@ -24,8 +24,8 @@ if len(sys.argv) > 2:
     date = sys.argv[1]
     year = date[:4]
     doy = str(UTCDateTime(date).julday).rjust(3, "0")
-    seed1 = sys.arv[2]
-    seed = sys.arv[3]
+    seed1 = sys.argv[2]
+    seed = sys.argv[3]
 else:
     year = input("Enter year: ")
 

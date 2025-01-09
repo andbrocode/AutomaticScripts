@@ -37,7 +37,7 @@ net1, sta1, loc1, cha1 = seed1.split(".")
 net, sta, loc, cha = seed.split(".")
 
 
-path_to_data = f"/import/freenas-ffb-01-data/temp_archive/{year}/{net1}/{sta1}/{cha1}.D/"
+path_to_data = f"/import/freenas-ffb-01-data/temp_archive/PROMY0/{year}/{net1}/{sta1}/{cha1}.D/"
 
 path_to_sds = "/import/freenas-ffb-01-data/temp_archive/"
 

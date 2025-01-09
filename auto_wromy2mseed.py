@@ -132,7 +132,6 @@ df.replace(-9999, nan, inplace=True)
 ## merge dataframes to replace missing datetimes in data with nan and make sure dataframe is full
 df = merge(df, df_nan, on="datetime_UTC", how="right")
 
-
 tr1 = Trace()
 tr1.stats.starttime = UTCDateTime(df.datetime_UTC[0])
 tr1.stats.delta = dt
@@ -164,11 +163,23 @@ st0 += tr1
 st0 += tr2
 st0 += tr3
 
-
 st0 = st0.merge()
 
-
 __write_stream_to_sds(st0, path_to_sds)
+
+# prepare ultra low period stream
+st2 = st0.copy()
+
+for tr in st2:
+
+    tr.stats.channel = f'U{tr.stats.channel[1:]}'
+
+    # tr = tr.filter("lowpass", freq=0.005, corners=4, zerophase=True)
+    tr = tr.decimate(5, no_filter=True)
+    tr = tr.decimate(5, no_filter=True)
+    tr = tr.decimate(2, no_filter=True)
+
+__write_stream_to_sds(st2, path_to_sds)
 
 
 ## _______________________________
