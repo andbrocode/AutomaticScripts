@@ -7,8 +7,8 @@
 # updated by AB 2023-10-31
 # updated by AB 2023-11-02
 
-## _______________________________
-## libraries
+# _______________________________
+# libraries
 
 import os
 import sys
@@ -18,40 +18,40 @@ from pandas import read_csv, DataFrame, merge
 from datetime import datetime
 from numpy import array
 
-## _______________________________
-## configurations
+# _______________________________
+# configurations
 
+# get number of raspberry pi
 pi_num = os.uname()[1][-2:]
 
-## date
-#dat = UTCDateTime(str(sys.argv[1]))
-dat = UTCDateTime.now() - 86400 ## date for yesterday
+# date
+dat = UTCDateTime(str(sys.argv[1]))
+# dat = UTCDateTime.now() - 86400 ## date for yesterday
 
 year = str(dat.year)
 doy = str(dat.julday).rjust(3,"0")
 
-## seed after
+# seed after
 net,sta,loc,cha = "BW", "PROMY", pi_num, "*"
 
-## seed before
+# seed before
 net1,sta1,loc1,cha1 = "BW", "PROMY", "", f"PS{pi_num[-1]}"
-
 
 path_to_data = f"/home/pi/PROMY/data/PS{pi_num[-1]}.D/{year}/"
 
 path_to_sds = "/home/pi/PROMY/data/mseed/"
 
-## time delta
+# time delta
 dt = 1
 
-## _______________________________
-## methods
+# _______________________________
+# methods
 
 def __write_stream_to_sds(st, path_to_sds):
 
     import os
 
-    ## check if output path exists
+    # check if output path exists
     if not os.path.exists(path_to_sds):
         print(f" -> {path_to_sds} does not exist!")
         return
@@ -85,31 +85,34 @@ def __write_stream_to_sds(st, path_to_sds):
         finally:
             print(f" -> stored stream as: {yy}/{nn}/{ss}/{cc}.D/{nn}.{ss}.{ll}.{cc}.D.{yy}.{jj}")
 
-## _______________________________
-## main
+# _______________________________
+# main
 
 st0 = Stream()
 
-file=f"{net1}.{sta1}.{loc1}.{cha1}.D.{year}.{doy}"
+# assemble file name
+file = f"{net1}.{sta1}.{loc1}.{cha1}.D.{year}.{doy}"
 
+# read data to dataframe
 df = read_csv(path_to_data+file)
 
-## check data sample size
+# check data sample size
 if df.shape[0] != 86400:
     print(f"-> {file} - Error: size not 86400 but {df.shape[0]}")
     #continue
 
-## get current date from file name
+# get current date from file name
 day_num = file[-3:]
 date = datetime.strptime(year + "-" + day_num, "%Y-%j").strftime("%Y%m%d")
 
-## create data frame for all times of day
+# create data frame for all times of day
 df_nan = DataFrame()
 df_nan['datetime_UTC'] = array([str(UTCDateTime(date)+_t).split('.')[0].replace('-','').replace(':','') for _t in range(0, 86400, dt)])
 
-## merge dataframes to replace missing datetimes in data with nan and make sure dataframe is full
+# merge dataframes to replace missing datetimes in data with nan and make sure dataframe is full
 df = merge(df, df_nan, on="datetime_UTC", how="right")
 
+# assemble traces
 tr1 = Trace()
 tr1.stats.starttime = UTCDateTime(df.datetime_UTC[0])
 tr1.stats.delta = dt
@@ -133,8 +136,8 @@ st0 += tr2
 
 st0 = st0.merge()
 
+# write stream as mseed
 __write_stream_to_sds(st0, path_to_sds)
 
-
-## _______________________________
-## End of File
+# _______________________________
+# End of File

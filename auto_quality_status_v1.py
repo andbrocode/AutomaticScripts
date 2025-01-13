@@ -83,8 +83,8 @@ def __save_to_pickle(obj, path, name):
     ofile = open(path+name+".pkl", 'wb')
     pickle.dump(obj, ofile)
 
-    if os.path.isfile(path+name+".pkl"):
-        print(f"\n -> created:  {path}{name}.pkl")
+    if not os.path.isfile(path+name+".pkl"):
+        print(f"\n -> not created:  {path}{name}.pkl")
 
 
 def __get_mlti_intervals(mlti_times, time_delta=60):
@@ -202,7 +202,8 @@ def main(config):
 
     # _____________________________________
     # ### Load Beat Data
-    print(f"\n loading R{config['ring']}: {config['tbeg'].date} ...")
+    
+    # print(f"\n loading R{config['ring']}: {config['tbeg'].date} ...")
 
     # loading data
     try:
@@ -315,8 +316,11 @@ def main(config):
 
         plt.title(f"Quality Status of R{config['ring']} on {config['tbeg'].date}")
 
-        print(f" -> stored: {config['path_to_figures']}R{config['ring']}_{config['tbeg'].date}_status.png")
         fig.savefig(config['path_to_figures']+f"R{config['ring']}_{config['tbeg'].date}_status.png", format="png", dpi=100, bbox_inches='tight')
+        
+
+        if not os.path.isfile(config['path_to_figures']+f"R{config['ring']}_{config['tbeg'].date}_status.png"):
+            print(f" -> not stored: {config['path_to_figures']}R{config['ring']}_{config['tbeg'].date}_status.png")
 
         plt.close();
 

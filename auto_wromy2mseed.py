@@ -28,7 +28,7 @@ from numpy import array, nan
 pi_num = sys.argv[1]
 
 ## date
-if len(sys.argv) > 1:
+if len(sys.argv) > 2:
     dat = UTCDateTime(str(sys.argv[2]))
 else:
     dat = UTCDateTime.now() - 86400 ## date for yesterday

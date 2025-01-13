@@ -354,7 +354,7 @@ def __compute_romy_adr(tbeg, tend, submask='all', ref_station='GR.FUR', excluded
             if station == config['reference_station']:
                 ref_station = stats.copy()
 
-                if config['submask'] == "inner":
+                if config['submask'] == "inner" or config['submask'] == "all":
                     # upsample from 20 to 40 Hz
                     stats = stats.resample(40.0, no_filter=True)
                     stats = stats.trim(t1, t2)
