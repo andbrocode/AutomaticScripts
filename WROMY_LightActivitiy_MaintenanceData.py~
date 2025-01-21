@@ -81,14 +81,11 @@ def __read_LX_files(date, path_to_files, threshold=5):
         df['Time'] = [str(_t).rjust(6, "0") for _t in df.Time]
 
         ## drop nan
-        df = df.dropna(subset=['Date'], inplace=True)
-        print(df)
+        # df = df.dropna(subset=['Date'], inplace=True)
 
         ## convert Date to string
-        try:
-            df['Date'] = df['Date'].astype(int).astype(str)
-        except:
-             pass
+        df['Date'] = df['Date'].fillna(-1).astype('Int64').astype(str).replace('-1', np.nan)
+
         ## creat new datetime column
         df['datetime'] = pd.to_datetime(df['Date'] + 'T' + df['Time'], format="%Y%m%dT%H%M%S")
 

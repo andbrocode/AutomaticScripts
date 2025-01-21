@@ -7,6 +7,7 @@
 import os
 import sys
 import pandas as pd
+import numpy as np
 
 if os.uname().nodename == 'lighthouse':
     root_path = '/home/andbro/'
@@ -84,7 +85,7 @@ def __read_LX_files(date, path_to_files, threshold=5):
         # df = df.dropna(subset=['Date'], inplace=True)
 
         ## convert Date to string
-        df['Date'] = df['Date'].astype(int).astype(str)
+        df['Date'] = df['Date'].fillna(-1).astype('Int64').astype(str).replace('-1', np.nan)
 
         ## creat new datetime column
         df['datetime'] = pd.to_datetime(df['Date'] + 'T' + df['Time'], format="%Y%m%dT%H%M%S")
