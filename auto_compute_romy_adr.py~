@@ -653,7 +653,7 @@ def __compute_romy_adr(tbeg, tend, submask='all', ref_station='GR.FUR', excluded
         return None, None
 
     # trim to requested interval
-    rot = rot.trim(config['tbeg'], config['tend'], nearest_sample=False)
+    rot = rot.trim(config['tbeg'], config['tend'])
 
     # stop times
     stop_timer1 = timeit.default_timer()
@@ -677,8 +677,6 @@ def main(config):
                                   excluded_stations=[],
                                   map_plot=False,
                                  )
-        iadr = iadr.trim(config['tbeg'], config['tend'], nearest_sample=False)
-
 #        iadr.plot();
 
     except Exception as e:
@@ -697,9 +695,6 @@ def main(config):
                                   excluded_stations=config['exclude'],
                                   map_plot=False,
                                  )
-
-        oadr = oadr.trim(config['tbeg'], config['tend'], nearest_sample=False)
-
 #        oadr.plot();
 
     except Exception as e:
@@ -718,10 +713,7 @@ def main(config):
                                   excluded_stations=config['exclude'],
                                   map_plot=False,
                                  )
-
-        aadr = aadr.trim(config['tbeg'], config['tend'], nearest_sample=False)
-
-#        aadr.plot();
+#        oadr.plot();
 
     except Exception as e:
         print(e)

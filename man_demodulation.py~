@@ -6,9 +6,9 @@ Run backscatter quantity computation and correction automatically
 
 import os
 import sys
-import matplotlib.pyplot as plt
 import numpy as np
-import multiprocessing as mp
+# import multiprocessing as mp
+# import matplotlib.pyplot as plt
 
 from tqdm import tqdm
 from datetime import datetime, date
@@ -38,7 +38,7 @@ elif os.uname().nodename in ['lin-ffb-01', 'ambrym', 'hochfelln']:
 
 config = {}
 
-# extract date
+# extract and assign arguments
 # config['tbeg'] = UTCDateTime(sys.argv[1])
 # config['tend'] = config['tbeg'] + 86400
 
@@ -65,7 +65,7 @@ config['path_to_config'] = "./"
 config['ring'] = "Z"
 
 # set location code (to discrimiate datasets)
-config['loc'] = ""
+config['loc'] = "12"
 
 # select frequency estimation mode
 config['mode'] = "hilbert" # "hilbert" | "sine"
@@ -114,13 +114,16 @@ config['path_to_sds'] = archive_path+"romy_archive/"
 # specify amount of cpu kernels to use for parallel processing
 # config['n_cpu'] = 3
 
+# set seismic mode for high-frequency data demodulation
+# or geodetic mode for averaging over the selected time period (e.g. 60s averages for sps = 1/60)
+config['mode'] = "seismic" # seismic | geodetic
 
 
 # ______________________________________
 
 class sagnacdemod:
 
-    def __init__(self, config=None, output_sampling_rate=1, ddt=100, nominal_sagnacf=None, loc="", ring="Z", adaptive_scaling=False):
+    def __init__(self, config=None, output_sampling_rate=1, ddt=100, mode="seismic", nominal_sagnacf=None, loc="", ring="Z", adaptive_scaling=False):
 
         from obspy import Stream
 
@@ -158,6 +161,8 @@ class sagnacdemod:
         # set adaptive scaling
         self.adaptive_scaling = adaptive_scaling
 
+        # select mode (seismic | geodetic)
+        self.mode = mode
 
     def load_sagnac_data(self, seed, tbeg, tend, path_to_sds, output=True, verbose=False):
 
@@ -308,31 +313,68 @@ class sagnacdemod:
         if self.adaptive_scaling:
             sf_estimate = np.median(tr.data) / self.omegaE
 
-        # scaling
-        if self.adaptive_scaling:
-            # tr.data = (tr.data - np.median(tr.data)) / np.median(tr.data) * self.omegaE
-            tr.data = tr.data / sf_estimate - self.omegaE
-        else:
-            # tr.data = (tr.data - self.nominal_sagnac) / self.nominal_sagnac * self.omegaE
-            tr.data = tr.data / sf - self.omegaE
+        if self.mode == "seismic":
 
-        # decimate to desired sampling rate
-        tr = tr.detrend("demean")
-        tr = tr.filter("lowpass", freq=500, corners=4, zerophase=True)
-        tr = tr.resample(1000, no_filter=True)
+            # scaling
+            if self.adaptive_scaling:
+                # tr.data = (tr.data - np.median(tr.data)) / np.median(tr.data) * self.omegaE
+                tr.data = tr.data / sf_estimate - self.omegaE
+            else:
+                # tr.data = (tr.data - self.nominal_sagnac) / self.nominal_sagnac * self.omegaE
+                tr.data = tr.data / sf - self.omegaE
 
-        tr = tr.detrend("demean")
-        tr = tr.filter("lowpass", freq=300, corners=4, zerophase=True)
-        tr = tr.resample(600, no_filter=True)
+            # decimate to desired sampling rate
+            tr = tr.detrend("demean")
+            tr = tr.filter("lowpass", freq=500, corners=4, zerophase=True)
+            tr = tr.resample(1000, no_filter=True)
 
-        tr = tr.detrend("demean")
-        tr = tr.filter("lowpass", freq=fnqst, corners=4, zerophase=True)
-        tr = tr.resample(df, no_filter=True)
+            tr = tr.detrend("demean")
+            tr = tr.filter("lowpass", freq=300, corners=4, zerophase=True)
+            tr = tr.resample(600, no_filter=True)
 
-        tr = tr.trim(self.tbeg, self.tend, nearest_sample=False)
+            tr = tr.detrend("demean")
+            tr = tr.filter("lowpass", freq=fnqst, corners=4, zerophase=True)
+            tr = tr.resample(df, no_filter=True)
 
-        # remove last sample to avoid overlaps in stream
-        tr.data = tr.data[:-1]
+            # adjust time interval
+            tr = tr.trim(self.tbeg, self.tend, nearest_sample=False)
+
+            # remove last sample to avoid overlaps in stream
+            tr.data = tr.data[:-1]
+
+        elif self.mode == "geodetic":
+
+            # adjust time interval
+            tr = tr.trim(self.tbeg, self.tend, nearest_sample=False)
+    
+            # remove last sample to avoid overlaps in stream
+            tr.data = tr.data[:-1]
+
+            print(tr)
+
+            # sampling time 
+            dt = 1/df
+
+            # total samples of trace
+            NN = tr.stats.npts
+
+            # sample increment
+            dN = int(self.df0 * dt)
+
+            # indies
+            N1 = np.arange(0, NN, dN).astype(int)
+            N2 = N1 + dN - 1
+
+            # averaging
+            avg = np.zeros(len(N1))
+            for k, (n1, n2) in enumerate(zip(N1, N2)):
+                avg[k] = (np.median(tr.data[n1:n2]))
+
+            tr.data = avg
+            tr.stats.starttime = tr.stats.starttime + dt/2
+            tr.stats.sampling_rate = df
+
+            print(tr)
 
         # add trace to stream
         self.fstream += tr
@@ -379,10 +421,9 @@ class sagnacdemod:
                 st_tmp = self.fstream.copy()
                 st_tmp = st_tmp.select(network=nn, station=ss, location=ll, channel=cc)
                 st_tmp.write(path_to_out_sds+f"{yy}/{nn}/{ss}/{cc}.D/"+f"{nn}.{ss}.{ll}.{cc}.D.{yy}.{jj}", format="MSEED")
+                print(f" -> stored stream as: {yy}/{nn}/{ss}/{cc}.D/{nn}.{ss}.{ll}.{cc}.D.{yy}.{jj}")
             except:
                 print(f" -> failed to write: {cc}")
-            finally:
-                print(f" -> stored stream as: {yy}/{nn}/{ss}/{cc}.D/{nn}.{ss}.{ll}.{cc}.D.{yy}.{jj}")
 
     @staticmethod
     def get_scalefactor(ring="Z"):
@@ -477,6 +518,7 @@ def main(config):
                          loc=config.get('loc'),
                          ring=config.get('ring'),
                          adaptive_scaling=config.get('adaptive_scaling'),
+                         mode=config.get('mode')
                          )
 
     if config['store_config']:
@@ -503,7 +545,7 @@ def main(config):
                                     prewhiten=config.get('prewhitening'),
                                     )
 
-            sagnac.get_stream(df=20)
+            sagnac.get_stream(df=config.get('output_sps'))
 
     else:
 

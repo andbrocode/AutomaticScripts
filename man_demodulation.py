@@ -42,8 +42,8 @@ config = {}
 # config['tbeg'] = UTCDateTime(sys.argv[1])
 # config['tend'] = config['tbeg'] + 86400
 
-config['tbeg'] = UTCDateTime("2024-11-04 00:00")
-config['tend'] = UTCDateTime("2024-11-05 00:00")
+config['tbeg'] = UTCDateTime("2023-09-08 00:00")
+config['tend'] = UTCDateTime("2023-09-09 00:00")
 
 # project name
 # config['project'] = ""
@@ -62,10 +62,10 @@ config['path_to_config'] = "./"
 
 # extract ring
 # config['ring'] = sys.argv[2]
-config['ring'] = "Z"
+config['ring'] = "V"
 
 # set location code (to discrimiate datasets)
-config['loc'] = "XX"
+config['loc'] = "60"
 
 # select frequency estimation mode
 config['mode'] = "hilbert" # "hilbert" | "sine"
@@ -78,7 +78,7 @@ config['seed'] = f"BW.DROMY..FJ{config['ring']}"
 config['time_interval'] = 3600
 
 # specify output sampling rate
-config['output_sps'] = 1/60
+config['output_sps'] = 20
 
 # set adaptive scaling
 config['adaptive_scaling'] = False
@@ -93,7 +93,7 @@ config['prewhitening'] = 0.001
 config['ddt'] = 1800
 
 # frequency band (minus and plus)
-config['fband'] = 1 # 10
+config['fband'] = 10 # 10
 
 # specify cm filter value for backscatter correction
 # config['cm_value'] = 1.033
@@ -116,7 +116,7 @@ config['path_to_sds'] = archive_path+"romy_archive/"
 
 # set seismic mode for high-frequency data demodulation
 # or geodetic mode for averaging over the selected time period (e.g. 60s averages for sps = 1/60)
-config['mode'] = "geodetic" # seismic | geodetic
+config['mode'] = "seismic" # seismic | geodetic
 
 
 # ______________________________________
