@@ -34,6 +34,8 @@ config = {}
 if len(sys.argv) > 1:
     config['date'] = sys.argv[1]
     print(config['date'])
+else:
+    config['date'] = input("Enter date:")
 
 config['year'] = config['date'][:4]
 
@@ -47,6 +49,9 @@ config['path_to_outlog'] = archive_path+f"romy_autodata/{config['year']}/logfile
 
 config['path_to_figs'] = archive_path+f"romy_plots/{config['year']}/logs/"
 
+config['verbose'] = False
+
+## Functions
 
 def __read_LX_files(date, path_to_files, threshold=5):
 
@@ -57,6 +62,10 @@ def __read_LX_files(date, path_to_files, threshold=5):
 
     ## interate for all sensors of WROMY
     counter = 0
+
+    ## set switch
+    first = True
+
     for sensor in [1,4,5,6,7,8,9]:
 
         ## assemble file name
@@ -70,7 +79,8 @@ def __read_LX_files(date, path_to_files, threshold=5):
             df = pd.read_csv(datapath+filename, names=['Date', 'Time', 'State'])
             counter += 1
         else:
-            #print(f" -> {datapath+filename} does not exists!")
+            if config['verbose']:
+                print(f" -> {datapath+filename} does not exists!")
             continue
 
         df['State'] = [1 if _val > threshold else 0 for _val in df['State']]
@@ -100,8 +110,9 @@ def __read_LX_files(date, path_to_files, threshold=5):
         df.drop(columns=["Date", "Time"], inplace=True)
 
         ## merge dataframes after first one
-        if counter == 1:
+        if first:
             df0 = df
+            first = False
         else:
             df0 = pd.merge(left=df0, right=df, how="left", left_on=["datetime"], right_on=["datetime"])
 
