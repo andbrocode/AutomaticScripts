@@ -94,7 +94,7 @@ config = {}
 
 if len(sys.argv) > 1:
     config['year'] = sys.argv[1]
-    print(config['year'])
+    # print(config['year'])
 else:
     config['year'] = input("Enter year: ")
 

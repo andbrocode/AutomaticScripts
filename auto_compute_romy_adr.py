@@ -160,7 +160,8 @@ def __compute_romy_adr(tbeg, tend, submask='all', ref_station='GR.FUR', excluded
     config['tend'] = UTCDateTime(tend)
 
     # select the fdsn client for the stations
-    config['fdsn_client'] = {"BW":Client('http://jane'), "GR":Client('BGR')}
+    # config['fdsn_client'] = {"BW":Client('http://jane'), "GR":Client('BGR')}
+    config['fdsn_client'] = {"BW":Client('https://jane.geophysik.uni-muenchen.de'), "GR":Client('BGR')}
 
     # define output seed
     config['out_seed'] = "BW.ROMY"
@@ -325,16 +326,16 @@ def __compute_romy_adr(tbeg, tend, submask='all', ref_station='GR.FUR', excluded
             # successfully obtained
             if len(stats) == 3:
                 if config['verbose']:
-                    print(f" -> obtained waveforms for {net}.{sta}")
+                    print(f" -> obtained waveforms for {net}.{sta}\n")
 
             # remove response [VEL -> rad/s | DISP -> rad]
             stats = stats.remove_sensitivity(inventory)
             # stats = stats.remove_response(inventory, output="VEL", water_level=None, pre_filt=[0.005, 0.008, 8, 10])
             # stats = stats.remove_response(inventory, output="VEL", water_level=1)
 
-            # rotate to ZNE
+            # rotate to ZNE (if FFB* stations are included)
             try:
-                if config['submask'] == "inner":
+                if config['submask'] in ["inner", "all"]:
                     stats = stats.rotate(method='->ZNE', inventory=inventory, components=['Z12'])
                 else:
                     stats = stats.rotate(method='->ZNE', inventory=inventory, components=['ZNE'])
@@ -348,30 +349,31 @@ def __compute_romy_adr(tbeg, tend, submask='all', ref_station='GR.FUR', excluded
 
             # stats = stats.taper(0.01);
             stats = stats.filter("highpass", freq=0.001, corners=4, zerophase=True);
-            # stats = stats.filter("highpass", freq=0.001);
+            stats = stats.filter("lowpass", freq=5.0, corners=4, zerophase=True); # added 2025-02-18
 
             # store stream of reference station as template
             if station == config['reference_station']:
                 ref_station = stats.copy()
 
-                if config['submask'] == "inner" or config['submask'] == "all":
-                    # upsample from 20 to 40 Hz
+                if config['submask'] == "inner":
+                    # upsample (FUR) from 20 to 40 Hz
                     stats = stats.resample(40.0, no_filter=True)
                     stats = stats.trim(t1, t2)
-
 
             # resample to output sampling rate
             if config['submask'] == "inner":
                 stats = stats.decimate(2, no_filter=False)
+
+            elif config['submask'] == "all":
+                for tr in stats:
+                    if "FFB" in tr.stats.station:
+                        tr = tr.decimate(2, no_filter=False)
 
             # add station data to stream
             st += stats
 
             # update subarray
             config['subarray'].append(f"{stats[0].stats.network}.{stats[0].stats.station}")
-
-#            if config['verbose']:
-#                print(stats)
 
         # trim to interval
         # stats.trim(config['tbeg'], config['tend'], nearest_sample=False)
@@ -382,7 +384,7 @@ def __compute_romy_adr(tbeg, tend, submask='all', ref_station='GR.FUR', excluded
         config['subarray_stations'] = config['subarray']
 
         if config['verbose']:
-            print(f" -> obtained: {int(len(st)/3)} of {len(config['array_stations'])} stations!")
+            print(f" -> obtained: {int(len(st)/3)} of {len(config['subarray_stations'])} stations!")
 
         # check for reference station
         if config['reference_station'] not in config['subarray_stations']:
@@ -456,33 +458,6 @@ def __compute_romy_adr(tbeg, tend, submask='all', ref_station='GR.FUR', excluded
 
         rotsa = rotsa.detrend('linear')
 
-    #     gradient_ZNE = result['ts_ptilde'] #u1,1 u1,2 u1,3 u2,1 u2,2 u2,3
-    #     u_ee=gradient_ZNE[:,0]
-    #     u_en=gradient_ZNE[:,1]
-    #     u_ez=gradient_ZNE[:,2]
-    #     u_ne=gradient_ZNE[:,3]
-    #     u_nn=gradient_ZNE[:,4]
-    #     u_nz=gradient_ZNE[:,5]
-
-
-        #(Gradient trace)
-        #      Gradient = o_stats.copy()        #information of the central station
-        #      Gradient.append(o_stats[0].copy())
-        #      Gradient.append(o_stats[0].copy())
-        #      Gradient.append(o_stats[0].copy())
-        #      Gradient[0].data = u_ee
-        #      Gradient[1].data = u_en
-        #      Gradient[2].data = u_ez
-        #      Gradient[3].data = u_ne
-        #      Gradient[4].data = u_nn
-        #      Gradient[5].data = u_nz
-        #      Gradient[0].stats.channel='uee'
-        #      Gradient[1].stats.channel='uen'
-        #      Gradient[2].stats.channel='uez'
-        #      Gradient[3].stats.channel='une'
-        #      Gradient[4].stats.channel='unn'
-        #      Gradient[5].stats.channel='unz'
-
         return rotsa
 
     def __adjust_time_line(st0, reference="GR.FUR"):
@@ -513,6 +488,9 @@ def __compute_romy_adr(tbeg, tend, submask='all', ref_station='GR.FUR', excluded
 
     # request data for pfo array
     st, ref_station, config = __get_data(config)
+
+    if config['verbose']:
+        print(st.__str__(extended=True))
 
     # processing
     st = st.detrend("linear")
@@ -608,6 +586,8 @@ def __compute_romy_adr(tbeg, tend, submask='all', ref_station='GR.FUR', excluded
     st = st.detrend("linear")
     st = st.detrend("demean")
 
+    print(st)
+
     # bandpass filter
     if config['apply_bandpass']:
         st = st.taper(0.02, type="cosine")
@@ -645,6 +625,8 @@ def __compute_romy_adr(tbeg, tend, submask='all', ref_station='GR.FUR', excluded
     # check for same amount of samples
     __check_samples_in_stream(st, config)
 
+    print(st)
+
     # compute array derived rotation (ADR)
     try:
         rot = __compute_ADR(st, config, ref_station)
@@ -665,46 +647,49 @@ def __compute_romy_adr(tbeg, tend, submask='all', ref_station='GR.FUR', excluded
 
 def main(config):
 
+    if config['verbose']:
+        print(f"\nComputing ADR for {config['tbeg'].date}\n")
+
     # ___________________________________________________
     # ## Compute ADR for inner array
 
-    try:
-        iadr = __compute_romy_adr(config['tbeg'],
-                                  config['tend'],
-                                  submask='inner',
-                                  ref_station=config['reference'],
-                                  verbose=config['verbose'],
-                                  excluded_stations=[],
-                                  map_plot=False,
-                                 )
-        iadr = iadr.trim(config['tbeg'], config['tend'], nearest_sample=False)
+#     try:
+#         iadr = __compute_romy_adr(config['tbeg'],
+#                                   config['tend'],
+#                                   submask='inner',
+#                                   ref_station=config['reference'],
+#                                   verbose=config['verbose'],
+#                                   excluded_stations=[],
+#                                   map_plot=False,
+#                                  )
+#         iadr = iadr.trim(config['tbeg'], config['tend'], nearest_sample=False)
 
-#        iadr.plot();
+# #        iadr.plot();
 
-    except Exception as e:
-        print(e)
-        iadr = obs.Stream()
+#     except Exception as e:
+#         print(e)
+#         iadr = obs.Stream()
 
-    # ___________________________________________________
-    # ## Compute ADR for outer array
+#     # ___________________________________________________
+#     # ## Compute ADR for outer array
 
-    try:
-        oadr = __compute_romy_adr(config['tbeg'],
-                                  config['tend'],
-                                  submask='outer',
-                                  ref_station=config['reference'],
-                                  verbose=config['verbose'],
-                                  excluded_stations=config['exclude'],
-                                  map_plot=False,
-                                 )
+#     try:
+#         oadr = __compute_romy_adr(config['tbeg'],
+#                                   config['tend'],
+#                                   submask='outer',
+#                                   ref_station=config['reference'],
+#                                   verbose=config['verbose'],
+#                                   excluded_stations=config['exclude'],
+#                                   map_plot=False,
+#                                  )
 
-        oadr = oadr.trim(config['tbeg'], config['tend'], nearest_sample=False)
+#         oadr = oadr.trim(config['tbeg'], config['tend'], nearest_sample=False)
 
-#        oadr.plot();
+# #        oadr.plot();
 
-    except Exception as e:
-        print(e)
-        oadr = obs.Stream()
+#     except Exception as e:
+#         print(e)
+#         oadr = obs.Stream()
 
     # ___________________________________________________
     # ## Compute ADR for entire array
@@ -721,7 +706,7 @@ def main(config):
 
         aadr = aadr.trim(config['tbeg'], config['tend'], nearest_sample=False)
 
-#        aadr.plot();
+        aadr.plot();
 
     except Exception as e:
         print(e)
@@ -730,15 +715,15 @@ def main(config):
     # ___________________________________________________
     # ## Store Data
 
-    try:
-        __write_stream_to_sds(iadr, config['path_to_out_data'])
-    except Exception as e:
-        print(e)
+    # try:
+    #     __write_stream_to_sds(iadr, config['path_to_out_data'])
+    # except Exception as e:
+    #     print(e)
 
-    try:
-        __write_stream_to_sds(oadr, config['path_to_out_data'])
-    except Exception as e:
-        print(e)
+    # try:
+    #     __write_stream_to_sds(oadr, config['path_to_out_data'])
+    # except Exception as e:
+    #     print(e)
 
     try:
         __write_stream_to_sds(aadr, config['path_to_out_data'])
