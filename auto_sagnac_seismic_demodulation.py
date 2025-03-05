@@ -1,24 +1,22 @@
 """
 
-Run Sagnac demodulation (automatically)
+Run backscatter quantity computation and correction automatically
 
 """
 
 import os
 import sys
 import numpy as np
-
-from tqdm import tqdm
-from obspy import UTCDateTime
-
-from sagnacdemod import sagnacdemod
-
 # import multiprocessing as mp
 # import matplotlib.pyplot as plt
-# from datetime import datetime, date
-# from pandas import DataFrame, read_pickle, date_range, concat, read_csv
-# from scipy.signal import hilbert
 
+from tqdm import tqdm
+from datetime import datetime, date
+from pandas import DataFrame, read_pickle, date_range, concat, read_csv
+from obspy import UTCDateTime, read
+from scipy.signal import hilbert
+
+from sagnacdemod import sagnacdemod
 
 if os.uname().nodename == 'lighthouse':
     root_path = '/home/andbro/'
@@ -65,13 +63,13 @@ config['path_to_config'] = "./"
 
 # extract ring
 config['ring'] = sys.argv[2]
-# config['ring'] = "Z"  # set ring manual
+# config['ring'] = "Z"
 
 # set location code (to discrimiate datasets)
 config['loc'] = "60"
 
-# select frequency estimation mode (default: hilbert)
-config['mode'] = "hilbert"  # "hilbert" | "sine"
+# select frequency estimation mode
+config['mode'] = "hilbert" # "hilbert" | "sine"
 
 # specify seed codes
 # config['seeds'] = [f"BW.DROMY..FJ{config['ring']}", "BW.DROMY..F1V", "BW.DROMY..F2V"]
@@ -115,7 +113,7 @@ config['path_to_figs'] = data_path+"sagnac_frequency/figures/"
 config['path_to_sds'] = archive_path+"romy_archive/"
 
 # specify amount of cpu kernels to use for parallel processing
-config['n_cpu'] = 3
+# config['n_cpu'] = 3
 
 # set seismic mode for high-frequency data demodulation
 # or geodetic mode for averaging over the selected time period (e.g. 60s averages for sps = 1/60)

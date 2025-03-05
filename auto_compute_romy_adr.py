@@ -56,6 +56,7 @@ if len(sys.argv) > 1:
     config['tbeg'] = obs.UTCDateTime(sys.argv[1])
     config['tend'] = config['tbeg'] + 86400
 
+# set manual
 # config['tbeg'] = obs.UTCDateTime("2024-08-01 07:00")
 # config['tend'] = obs.UTCDateTime("2024-08-01 08:00")
 
@@ -653,43 +654,43 @@ def main(config):
     # ___________________________________________________
     # ## Compute ADR for inner array
 
-#     try:
-#         iadr = __compute_romy_adr(config['tbeg'],
-#                                   config['tend'],
-#                                   submask='inner',
-#                                   ref_station=config['reference'],
-#                                   verbose=config['verbose'],
-#                                   excluded_stations=[],
-#                                   map_plot=False,
-#                                  )
-#         iadr = iadr.trim(config['tbeg'], config['tend'], nearest_sample=False)
+    try:
+        iadr = __compute_romy_adr(config['tbeg'],
+                                  config['tend'],
+                                  submask='inner',
+                                  ref_station=config['reference'],
+                                  verbose=config['verbose'],
+                                  excluded_stations=[],
+                                  map_plot=False,
+                                 )
+        iadr = iadr.trim(config['tbeg'], config['tend'], nearest_sample=False)
 
-# #        iadr.plot();
+#        iadr.plot();
 
-#     except Exception as e:
-#         print(e)
-#         iadr = obs.Stream()
+    except Exception as e:
+        print(e)
+        iadr = obs.Stream()
 
-#     # ___________________________________________________
-#     # ## Compute ADR for outer array
+    # ___________________________________________________
+    # ## Compute ADR for outer array
 
-#     try:
-#         oadr = __compute_romy_adr(config['tbeg'],
-#                                   config['tend'],
-#                                   submask='outer',
-#                                   ref_station=config['reference'],
-#                                   verbose=config['verbose'],
-#                                   excluded_stations=config['exclude'],
-#                                   map_plot=False,
-#                                  )
+    try:
+        oadr = __compute_romy_adr(config['tbeg'],
+                                  config['tend'],
+                                  submask='outer',
+                                  ref_station=config['reference'],
+                                  verbose=config['verbose'],
+                                  excluded_stations=config['exclude'],
+                                  map_plot=False,
+                                 )
 
-#         oadr = oadr.trim(config['tbeg'], config['tend'], nearest_sample=False)
+        oadr = oadr.trim(config['tbeg'], config['tend'], nearest_sample=False)
 
-# #        oadr.plot();
+#        oadr.plot();
 
-#     except Exception as e:
-#         print(e)
-#         oadr = obs.Stream()
+    except Exception as e:
+        print(e)
+        oadr = obs.Stream()
 
     # ___________________________________________________
     # ## Compute ADR for entire array
@@ -706,7 +707,7 @@ def main(config):
 
         aadr = aadr.trim(config['tbeg'], config['tend'], nearest_sample=False)
 
-        aadr.plot();
+        # aadr.plot();
 
     except Exception as e:
         print(e)
@@ -715,20 +716,21 @@ def main(config):
     # ___________________________________________________
     # ## Store Data
 
-    # try:
-    #     __write_stream_to_sds(iadr, config['path_to_out_data'])
-    # except Exception as e:
-    #     print(e)
+    try:
+        __write_stream_to_sds(iadr, config['path_to_out_data'])
+    except Exception as e:
+        print(e)
 
-    # try:
-    #     __write_stream_to_sds(oadr, config['path_to_out_data'])
-    # except Exception as e:
-    #     print(e)
+    try:
+        __write_stream_to_sds(oadr, config['path_to_out_data'])
+    except Exception as e:
+        print(e)
 
     try:
         __write_stream_to_sds(aadr, config['path_to_out_data'])
     except Exception as e:
         print(e)
+
 # ___________________________________________________
 
 if __name__ == "__main__":

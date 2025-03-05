@@ -340,12 +340,14 @@ def __makeplot_distribution(config, xx, yy, dist, overlay=False):
 
 def __get_welch_psd(config, arr, df):
 
+    from scipy.signal import get_window
+
     segments = df*config['segment_factor']
 
     f0, psd0 = welch(
                     arr,
                     fs=df,
-                    window='hanning',
+                    window=get_window('hann', len(arr)),
                     nperseg=segments,
                     noverlap=int(segments/2),
                     nfft=None,
@@ -356,6 +358,37 @@ def __get_welch_psd(config, arr, df):
 
     return f0, psd0
 
+
+def __get_psd(config, arr, df: float, method: str="welch"):
+
+    import numpy as np
+    from scipy.signal import welch, multitaper, get_window
+
+    if method == "welch":
+        
+        win = get_window("hann", len(arr))
+
+        segments = df*config['segment_factor']
+
+        f, psd = welch(
+                    arr,
+                    fs=df,
+                    nperseg=segments,
+                    noverlap=int(segments/2),
+                    nfft=None,
+                    detrend='constant',
+                    return_onesided=True,
+                    scaling='density',
+        )
+
+    elif method == "multitaper":
+
+        adaptive = True
+        n_window = 10
+    
+        f, psd = multitaper(arr, df, NW=n_window, adaptive=adaptive)
+
+    return f, psd
 
 def __save_to_pickle(obj, filename):
 
@@ -475,6 +508,7 @@ def main():
             try:
                 ff, psd = __get_welch_psd(config, st_raw[0].data, st_raw[0].stats.sampling_rate)
             except Exception as e:
+                print(f" -> failed to compute psd")
                 print(e)
 
             psds.append(psd)
