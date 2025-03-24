@@ -285,20 +285,19 @@ def __compute_romy_adr(tbeg, tend, submask='all', ref_station='GR.FUR', excluded
                 print(f" -> failed to load inventory for {net}.{sta} ...!")
                 inventory = None
 
-            # add coordinates
-            l_lon = float(inventory.get_coordinates('%s.%s.%s.%sZ'%(net,sta,loc,cha[:2]))['longitude'])
-            l_lat = float(inventory.get_coordinates('%s.%s.%s.%sZ'%(net,sta,loc,cha[:2]))['latitude'])
-            height = float(inventory.get_coordinates('%s.%s.%s.%sZ'%(net,sta,loc,cha[:2]))['elevation'])
+            if inventory is not None:
 
-            # store reference coordinates
-            if sta == config['reference_station'].split(".")[1]:
-                o_lon, o_lat, o_height = l_lon, l_lat, height
+                # add coordinates
+                l_lon = float(inventory.get_coordinates('%s.%s.%s.%sZ'%(net,sta,loc,cha[:2]))['longitude'])
+                l_lat = float(inventory.get_coordinates('%s.%s.%s.%sZ'%(net,sta,loc,cha[:2]))['latitude'])
+                height = float(inventory.get_coordinates('%s.%s.%s.%sZ'%(net,sta,loc,cha[:2]))['elevation'])
 
-            # compute relative distances to reference station in km
-            lon, lat = util_geo_km(o_lon, o_lat, l_lon, l_lat)
+                # store reference coordinates
+                if sta == config['reference_station'].split(".")[1]:
+                    o_lon, o_lat, o_height = l_lon, l_lat, height
 
-            # store distances as meters
-            coo.append([lon*1000, lat*1000, height-o_height])
+                # compute relative distances to reference station in km
+                lon, lat = util_geo_km(o_lon, o_lat, l_lon, l_lat)
 
             # try to get waveform data
             try:
@@ -369,6 +368,9 @@ def __compute_romy_adr(tbeg, tend, submask='all', ref_station='GR.FUR', excluded
                 for tr in stats:
                     if "FFB" in tr.stats.station:
                         tr = tr.decimate(2, no_filter=False)
+
+            # store distances as meters
+            coo.append([lon*1000, lat*1000, height-o_height])
 
             # add station data to stream
             st += stats
@@ -671,6 +673,12 @@ def main(config):
         print(e)
         iadr = obs.Stream()
 
+    # try to store data
+    try:
+        __write_stream_to_sds(iadr, config['path_to_out_data'])
+    except Exception as e:
+        print(e)
+
     # ___________________________________________________
     # ## Compute ADR for outer array
 
@@ -692,6 +700,12 @@ def main(config):
         print(e)
         oadr = obs.Stream()
 
+    # try to store data
+    try:
+        __write_stream_to_sds(oadr, config['path_to_out_data'])
+    except Exception as e:
+        print(e)
+    
     # ___________________________________________________
     # ## Compute ADR for entire array
 
@@ -712,20 +726,8 @@ def main(config):
     except Exception as e:
         print(e)
         aadr = obs.Stream()
-
-    # ___________________________________________________
-    # ## Store Data
-
-    try:
-        __write_stream_to_sds(iadr, config['path_to_out_data'])
-    except Exception as e:
-        print(e)
-
-    try:
-        __write_stream_to_sds(oadr, config['path_to_out_data'])
-    except Exception as e:
-        print(e)
-
+    
+    # try to store data
     try:
         __write_stream_to_sds(aadr, config['path_to_out_data'])
     except Exception as e:

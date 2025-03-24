@@ -1,0 +1,40 @@
+# Required time window parameters
+tbeg: "2023-09-01 00:00:00"  # Start time
+tend: "2023-09-30 00:00:00"  # End time
+
+# SEED identifiers
+seeds: ["BW.ROMY.00.BJZ", "BW.ROMY.00.BJE", "BW.ROMY.00.BJN"]  # station seed ID
+
+# Path to SDS for rotation and translation data
+path_to_sds: "/import/freenas-ffb-01-data/temp_archive/"  # SDS path for rotation data
+
+# Path configurations
+path_to_data_out: "/import/freenas-ffb-01-data/romy_spectra/"  # Output directory
+path_to_figures_out: "/import/freenas-ffb-01-data/romy_plots/"  # Output directory
+
+# Time interval parameters for spectra
+tinterval: 3600  # time interval in seconds
+toverlap: 0  # time overlap in seconds
+method: "welch"  # welch | multitaper | fft
+
+# plot limits for frequency range
+fmin: 0.001
+fmax: 5.0
+
+# Average in octave frequency bands
+apply_average: True
+fraction_of_octave: 6
+averaging: 'mean'
+
+# Set data unit for spectra
+data_unit: 'rad/s'
+
+# Quality filter parameters
+quality_filter: 'good' # Filter out bad spectra
+threshold: 1e-16 # Threshold for high value detection (all above then considered bad)
+zero_seq_limit: 10 # Maximum allowed length of zero sequences
+high_seq_limit: 10 # Maximum allowed length of high value sequences
+flat_seq_limit: 20 # Maximum allowed length of flat-line segments
+
+# Optional parameters
+verbose: true  # Print detailed information

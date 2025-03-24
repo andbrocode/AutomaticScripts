@@ -32,7 +32,7 @@ mpl.rcParams['agg.path.chunksize'] = 10000
 ## Configuration
 
 freenas_path = "/import/freenas-ffb-01-data/"
-#freenas_path = "/home/andbro/freenas/"
+freenas_path = "/home/andbro/freenas/"
 
 
 config = {}
