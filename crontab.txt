@@ -1,0 +1,180 @@
+# Edit this file to introduce tasks to be run by cron.
+# 
+# Each task to run has to be defined through a single line
+# indicating with different fields when the task will be run
+# and what command to run for the task
+# 
+# To define the time you can provide concrete values for
+# minute (m), hour (h), day of month (dom), month (mon),
+# and day of week (dow) or use '*' in these fields (for 'any').
+# 
+# Notice that tasks will be started based on the cron's system
+# daemon's notion of time and timezones.
+# 
+# Output of the crontab jobs (including errors) is sent through
+# email to the user the crontab file belongs to (unless redirected).
+# 
+# For example, you can run a backup of all your user accounts
+# at 5 a.m every week with:
+# 0 5 * * 1 tar -zcf /var/backups/home.tgz /home/
+# 
+# For more information see the manual pages of crontab(5) and cron(8)
+#
+MAILTO="andreas.brotzer@lmu.de"
+#
+PATH=/home/brotzer/bin:/home/brotzer/anaconda3/condabin:/home/brotzer/anaconda3/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/home/brotzer/bin
+# define default shell (to use source)
+SHELL=/bin/bash
+#
+## define local time year
+YEAR_L="date +%Y"
+## define year (use it with $(${YEAR})
+YEAR="date --utc +%Y"
+## define last year
+YEAR1="date --utc -d -1days +%Y"
+## define date -x days
+DAY1="date -d -1days +%Y-%m-%d"
+DAY2="date -d -2days +%Y-%m-%d"
+#
+## set matplotlib cache directory
+MPLCONFIGDIR="/tmp/"
+# 
+# m h  dom mon dow   command
+#0 12 * * 1-5  /home/brotzer/bin/workhoursedit.sh
+
+## syncronize ROMY Dokumentation
+# @daily rsync -rtu /home/brotzer/Documents/ROMY/Dokumentation/* /import/freenas-ffb-01-data/romy_technical_docs/ 
+
+## check if free disk space runs low
+# @hourly /home/brotzer/bin/check_quota.sh
+
+## check performance of raspi-romy-0X
+@daily /home/brotzer/bin/check-raspi-romy.sh >/dev/null 2>&1
+
+## convert PROMY data from temporary fromat to mseed and copy to archive
+@daily python3 /home/brotzer/scripts/auto_promy2mseed.py >/dev/null 2>&1
+
+## create directories yearly
+@yearly mkdir -p /import/freenas-ffb-01-data/romy_autodata/$(${YEAR_L})/{RV,RZ,RU,RW}/
+@yearly mkdir -p /import/freenas-ffb-01-data/romy_autodata/$(${YEAR_L})/logfiles/
+@yearly mkdir -p /import/freenas-ffb-01-data/romy_plots/$(${YEAR_L})/{RU,RV,RW,RZ}/{signal,spectra,status}/
+@yearly mkdir -p /import/freenas-ffb-01-data/romy_plots/$(${YEAR_L})/logs/
+@yearly mkdir -p /import/freenas-ffb-01-data/temp_archive/$(${YEAR_L})/BW/{ALFT,BIB,TON,GELB,GRMB}/
+@yearly mkdir -p /import/freenas-ffb-01-data/temp_archive/$(${YEAR_L})/BW/{RU,RV,RW,RZ}/
+@yearly mkdir -p /import/freenas-ffb-01-data/temp_archive/$(${YEAR_L})/BW/{PROMY,WROMY}/
+
+## run quality status script to create data for rings
+#45 12 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/auto_quality_status_v1.py Z $(${DAY2})
+#15 12 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/auto_quality_status_v1.py U $(${DAY2})    
+#30 12 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/auto_quality_status_v1.py V $(${DAY2})    
+
+## update maintenance plots and log files based on WROMY light sensors
+#@weekly python3 /home/brotzer/scripts/WROMY_LightActivitiy_Maintenance_CalendarPlot.py $(${YEAR})
+#@yearly python3 /home/brotzer/scripts/WROMY_LightActivitiy_Maintenance_CalendarPlot.py $(${YEAR1})
+
+## update maintenance data and log
+#0 5 * * * python3 /home/brotzer/scripts/WROMY_LightActivitiy_MaintenanceData.py $(${DAY1}) >/dev/null
+
+## convert WROMY csv files to mseed files
+#00 06 * * * for i in 01 04 05 06 07 08 09; do python3 /home/brotzer/scripts/auto_wromy2mseed.py $i; done >/dev/null 2>&1
+
+## create data and plots for RINGS
+## Z ______________
+#00 02 * * * /home/brotzer/anaconda3/bin/python3 /home/brotzer/scripts/autodata_SagnacFrequency_MPrandom_daily.py Z >/dev/null 2>&1
+#15 04 * * * /home/brotzer/anaconda3/bin/python3 /home/brotzer/scripts/autoplot_SagnacFrequency_spectra_daily.py Z >/dev/null 2>&1
+#30 04 * * * source anaconda3/bin/activate obs2 && python /home/brotzer/scripts/autoplot_SagnacFrequency_signal_daily.py Z >/dev/null 2>&1
+
+
+## U ______________ 
+#00 03 * * * /home/brotzer/anaconda3/bin/python3 /home/brotzer/scripts/autodata_SagnacFrequency_MPrandom_daily.py U >/dev/null 2>&1
+#15 05 * * * /home/brotzer/anaconda3/bin/python3 /home/brotzer/scripts/autoplot_SagnacFrequency_spectra_daily.py U >/dev/null 2>&1
+#30 05 * * * source anaconda3/bin/activate obs2 && python /home/brotzer/scripts/autoplot_SagnacFrequency_signal_daily.py U >/dev/null 2>&1
+
+
+## V ______________ 
+#00 03 * * * /home/brotzer/anaconda3/bin/python3 /home/brotzer/scripts/autodata_SagnacFrequency_MPrandom_daily.py V >/dev/null 2>&1
+#15 06 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/autoplot_SagnacFrequency_spectra_daily.py V >/dev/null 2>&1
+#30 06 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/autoplot_SagnacFrequency_signal_daily.py V >/dev/null 2>&1
+
+
+## update plots for hmtl monitor ( on lin-ffb-01 )
+#* */2 * * * source anaconda3/bin/activate obs2 && python3 /import/kilauea-data/HTML_Monitor/python_scripts/makeplot_WROMY.py >/dev/null 2>&1
+#* */2 * * * source anaconda3/bin/activate obs2 && python3 /import/kilauea-data/HTML_Monitor/python_scripts/makeplot_sagnacdrift.py >/dev/null 2>&1
+*/2 * * * * source anaconda3/bin/activate obs2 && python3 /import/kilauea-data/HTML_Monitor/python_scripts/makeplot_oszi.py >/dev/null 2>&1
+
+
+## create array report and send via mail
+#@weekly python3 /home/brotzer/bin/report_array.py && date | mutt -s "Report ROMY ARRAY" brotzer@geophysik.uni-muenchen.de -a /home/brotzer/Downloads/report/report*.pdf
+#@weekly python3 /home/brotzer/spyder/report_array.py && date | mutt -s "Report ROMY ARRAY" brotzer@geophysik.uni-muenchen.de -a /home/brotzer/Downloads/report/report*.pdf
+@weekly python3 /home/brotzer/bin/check_romy_array_stations.py >/dev/null 2>&1
+
+## check BIB
+#37 12 * * * obspy-plot /bay200/mseed_online/archive/2022/BW/BIB/VM?.D/*
+@weekly python3 /home/brotzer/bin/check_bwbib_masses.py >/dev/null 2>&1
+#
+## send SDS reports via mail
+@weekly bash /home/brotzer/bin/send_sds_report_romy.sh >/dev/null 2>&1
+@weekly bash /home/brotzer/bin/send_sds_report_baro.sh >/dev/null 2>&1
+
+## sync PROMY data (=DPS310) from array stations (lin)
+#0 4 * * * rsync --update -r -e "ssh -i /home/brotzer/.ssh/promy_ed25519" pi@grmbbw:/home/pi/PROMY_usbadapter/data/mseed/ /import/freenas-ffb-01-data/temp_archive/ >/dev/null
+#0 4 * * * rsync --update -r -e "ssh -i /home/brotzer/.ssh/promy_ed25519" pi@alftbw:/home/pi/PROMY_usbadapter/data/mseed/ /import/freenas-ffb-01-data/temp_archive/ >/dev/null
+#0 4 * * * rsync --update -r -e "ssh -i /home/brotzer/.ssh/promy_ed25519" pi@gelbbw:/home/pi/PROMY_usbadapter/data/mseed/ /import/freenas-ffb-01-data/temp_archive/ >/dev/null
+#0 4 * * * rsync --update -r -e "ssh -p 27 -i /home/brotzer/.ssh/promy_ed25519" pi@tonbw:/home/pi/PROMY_usbadapter/data/mseed/ /import/freenas-ffb-01-data/temp_archive/ >/dev/null
+#0 4 * * * rsync --update -r -e "ssh -p 27 -i /home/brotzer/.ssh/promy_ed25519" pi@bibbw:/home/pi/PROMY_usbadapter/data/mseed/ /import/freenas-ffb-01-data/temp_archive/ >/dev/null
+
+## sync PROMY data (=DPS310) from ROMY stations (lin)
+#30 04 * * * rsync --update -r -e "ssh -i ~/.ssh/promy_ed25519" pi@raspi-romy-01:/home/pi/PROMY/data/mseed/ /import/freenas-ffb-01-data/temp_archive/ >/dev/null
+#30 04 * * * rsync --update -r -e "ssh -i ~/.ssh/promy_ed25519" pi@raspi-romy-03:/home/pi/PROMY/data/mseed/ /import/freenas-ffb-01-data/temp_archive/ >/dev/null
+#30 04 * * * rsync --update -r -e "ssh -i ~/.ssh/promy_ed25519" pi@raspi-romy-04:/home/pi/PROMY/data/mseed/ /import/freenas-ffb-01-data/temp_archive/ >/dev/null
+#30 04 * * * rsync --update -r -e "ssh -i ~/.ssh/promy_ed25519" pi@raspi-romy-05:/home/pi/PROMY/data/mseed/ /import/freenas-ffb-01-data/temp_archive/ >/dev/null
+#30 04 * * * rsync --update -r -e "ssh -i ~/.ssh/promy_ed25519" pi@raspi-romy-06:/home/pi/PROMY/data/mseed/ /import/freenas-ffb-01-data/temp_archive/ >/dev/null
+#30 04 * * * rsync --update -r -e "ssh -i ~/.ssh/promy_ed25519" pi@raspi-romy-07:/home/pi/PROMY/data/mseed/ /import/freenas-ffb-01-data/temp_archive/ >/dev/null
+#30 04 * * * rsync --update -r -e "ssh -i ~/.ssh/promy_ed25519" pi@raspi-romy-08:/home/pi/PROMY/data/mseed/ /import/freenas-ffb-01-data/temp_archive/ >/dev/null
+#30 04 * * * rsync --update -r -e "ssh -i ~/.ssh/promy_ed25519" pi@raspi-romy-09:/home/pi/PROMY/data/mseed/ /import/freenas-ffb-01-data/temp_archive/ >/dev/null
+
+## sync images from raspi-romy-ids
+#30 02 * * * rsync --update -r -e "ssh -i ~/.ssh/promy_ed25519" pi@raspi-romy-ids:/home/pi/IDS/images/ /import/freenas-ffb-01-data/ids/images00/ >/dev/null
+
+## sync images from raspi-romy-ids01
+#30 02 * * * rsync --update -r -e "ssh -i ~/.ssh/promy_ed25519" pi@raspi-romy-ids01:/home/pi/IDS/images/ /import/freenas-ffb-01-data/ids/images01/ >/dev/null
+
+## sync images from raspi-romy-ids03
+#30 02 * * * rsync --update -r -e "ssh -i ~/.ssh/promy_ed25519" pi@raspi-romy-ids03:/home/pi/IDS/images/ /import/freenas-ffb-01-data/ids/images03/ >/dev/null
+
+## sync images from raspi-romy-ids05
+#30 02 * * * rsync --update -r -e "ssh -i ~/.ssh/promy_ed25519" pi@raspi-romy-ids05:/home/pi/IDS/images/ /import/freenas-ffb-01-data/ids/images05/ >/dev/null
+
+## sync images from raspi-romy-ids07
+#30 02 * * * rsync --update -r -e "ssh -i ~/.ssh/promy_ed25519" pi@raspi-romy-ids07:/home/pi/IDS/images/ /import/freenas-ffb-01-data/ids/images07/ >/dev/null
+
+## automatically run gauss 2D on IDS images
+#00 07 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/auto_gaussfit2d_v2.py 00 2>&1 >/dev/null
+#30 07 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/auto_gaussfit2d_v2.py 01 2>&1 >/dev/null
+#00 08 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/auto_gaussfit2d_v2.py 03 2>&1 >/dev/null
+#30 08 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/auto_gaussfit2d_v2.py 05 2>&1 >/dev/null
+#00 09 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/auto_gaussfit2d_v2.py 07 2>&1 >/dev/null
+
+## automatically run ROMY processing to make ROMY ZNE with mask
+#45 05 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/ROMY_processing_v3.py $(${DAY1}) 2>&1 >/dev/null
+
+## automatically run FFBI processing 
+#45 06 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/FFBI_processing_v1.py $(${DAY1}) 2>&1 >/dev/null
+
+## automatically compute ADR for ROMY array 
+#15 06 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/auto_compute_romy_adr.py $(${DAY1})
+
+## automatically run script to convert PROMY3 data
+#45 00 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/man_promy2mseed_V2.py $($DAY1) BW.PROMY..PS3 BW.PROMY.03.* >/dev/null
+
+## automatically run script to compute backscatter values and correction
+#05 05 * * * source  anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/BScorrection_auto.py $($DAY1) U
+#05 05 * * * source  anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/BScorrection_auto.py $($DAY1) V >/dev/null
+#05 05 * * * source  anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/BScorrection_auto.py $($DAY1) Z >/dev/null
+
+## move html monitor figures
+#@daily mv /import/kilauea-data/HTML_Monitor/figures/*.png /import/kilauea-data/HTML_Monitor/figures/old/
+
+# make spectra plots and copy them to HTML monitor directory
+#30 03 * * * source anaconda3/bin/activate obs2 && python3 /home/brotzer/scripts/spectra/make_spectra.py -d $($DAY1) -c /home/brotzer/scripts/spectra/config/config_romy_zuvw_spectra.yml
+#00 04 * * * /import/kilauea-data/HTML_Monitor/copy_plots.sh >/dev/null
