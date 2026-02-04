@@ -10,35 +10,36 @@
 # _______________________________
 # libraries
 
-import sys
 import os
+import sys
+
 from obspy import Stream, Trace, UTCDateTime
-from pandas import read_csv, DataFrame, merge, concat
+from pandas import read_csv, DataFrame, merge
 from datetime import datetime
 from numpy import array
 
 # _______________________________
 # configurations
 
-if len(sys.argv) > 2:
-    date = sys.argv[1]
-    year = date[:4]
-    doy = str(UTCDateTime(date).julday).rjust(3, "0")
-    seed1 = sys.argv[2]
-    seed = sys.argv[3]
-else:
-    year = input("Enter year: ")
+# get number of raspberry pi
+pi_num = os.uname()[1][-2:]
 
-    seed1 = input("Enter seed (before): ")
+# date
+dat = UTCDateTime(str(sys.argv[1]))
+# dat = UTCDateTime.now() - 86400 ## date for yesterday
 
-    seed = input("Enter seed (after): ")
+year = str(dat.year)
+doy = str(dat.julday).rjust(3,"0")
 
-net1, sta1, loc1, cha1 = seed1.split(".")
-net, sta, loc, cha = seed.split(".")
+# seed after
+net,sta,loc,cha = "BW", "PROMY", pi_num, "*"
 
-path_to_data = f"/import/freenas-ffb-01-data/temp_archive/PROMY0/{year}/{net1}/{sta1}/{cha1}.D/"
+# seed before
+net1,sta1,loc1,cha1 = "BW", "PROMY", "", f"PS{pi_num[-1]}"
 
-path_to_sds = "/import/freenas-ffb-01-data/temp_archive/"
+path_to_data = f"/home/pi/PROMY/data/PS{pi_num[-1]}.D/{year}/"
+
+path_to_sds = "/home/pi/PROMY/data/mseed/"
 
 # time delta
 dt = 1
@@ -50,7 +51,7 @@ def __write_stream_to_sds(st, path_to_sds):
 
     import os
 
-    ## check if output path exists
+    # check if output path exists
     if not os.path.exists(path_to_sds):
         print(f" -> {path_to_sds} does not exist!")
         return
@@ -87,25 +88,13 @@ def __write_stream_to_sds(st, path_to_sds):
 # _______________________________
 # main
 
-files = os.listdir(path_to_data)
-files.sort()
+st0 = Stream()
 
-# also read next day to avoid gap at end of day
-# doy2 = str(int(doy)+1).rjust(3, "0")
+# assemble file name
+file = f"{net1}.{sta1}.{loc1}.{cha1}.D.{year}.{doy}"
 
-for file in files:
-
-    st0 = Stream()
-
-    if doy in file:
-        print(file)
-        df = read_csv(path_to_data+file)
-    # elif doy2 in file:
-    #     print(file)
-    #     df2 = read_csv(path_to_data+file)
-    #     df = concat([df, df2])
-    else:
-        continue
+# read data to dataframe
+df = read_csv(path_to_data+file)
 
 # check data sample size
 if df.shape[0] != 86400:
@@ -113,7 +102,8 @@ if df.shape[0] != 86400:
     #continue
 
 # get current date from file name
-date = date.replace("-", "")
+day_num = file[-3:]
+date = datetime.strptime(year + "-" + day_num, "%Y-%j").strftime("%Y%m%d")
 
 # create data frame for all times of day
 df_nan = DataFrame()
@@ -122,6 +112,7 @@ df_nan['datetime_UTC'] = array([str(UTCDateTime(date)+_t).split('.')[0].replace(
 # merge dataframes to replace missing datetimes in data with nan and make sure dataframe is full
 df = merge(df, df_nan, on="datetime_UTC", how="right")
 
+# assemble traces
 tr1 = Trace()
 tr1.stats.starttime = UTCDateTime(df.datetime_UTC[0])
 tr1.stats.delta = dt
@@ -145,6 +136,7 @@ st0 += tr2
 
 st0 = st0.merge()
 
+# write stream as mseed
 __write_stream_to_sds(st0, path_to_sds)
 
 # _______________________________

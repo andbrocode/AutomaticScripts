@@ -18,21 +18,7 @@ import matplotlib.pyplot as plt
 
 ## _______________________________________
 
-if os.uname().nodename == 'lighthouse':
-    root_path = '/home/andbro/'
-    data_path = '/home/andbro/kilauea-data/'
-    archive_path = '/home/andbro/freenas/'
-    bay_path = '/home/andbro/ontap-ffb-bay200/'
-elif os.uname().nodename == 'kilauea':
-    root_path = '/home/brotzer/'
-    data_path = '/import/kilauea-data/'
-    archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/import/ontap-ffb-bay200/'
-elif os.uname().nodename in ['lin-ffb-01', 'ambrym', 'hochfelln']:
-    root_path = '/home/brotzer/'
-    data_path = '/import/kilauea-data/'
-    archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/import/ontap-ffb-bay200/'
+archive_path = '/freenas-ffb-01/'
 
 ## _______________________________________
 
@@ -44,7 +30,7 @@ config['ring'] = sys.argv[1]
 config['beagle'] = {"Z":"01", "U":"03", "V":"02", "W":"04"}
 
 if len(sys.argv) >= 3:
-    config['date'] = sys.argv[2]
+    config['date'] = UTCDateTime(sys.argv[2])
 else:
     config['date'] = str((UTCDateTime.now()-86400).date)
     # config['date'] = "2023-08-16"
@@ -293,7 +279,7 @@ def __makeplot_overview3(df, mlti):
     font = 12
     N = 3
 
-    fig, ax = plt.subplots(N,4,figsize=(15,5), sharex=True)
+    fig, ax = plt.subplots(N, 4, figsize=(15, 7), sharex=True)
 
     plt.subplots_adjust(wspace=0.4)
 
@@ -313,8 +299,6 @@ def __makeplot_overview3(df, mlti):
     ax[1,3].plot(df.index/60, df.contrast_1, label="CCW")
     ax[2,3].plot(df.index/60, df.contrast_2, label="CW")
 
-
-
     for n in range(3):
 #         ax[n,0].set_ylim(df.fj.mean()-df.fj.std(),df.fj.mean()+df.fj.std())
 #         ax[n,1].set_ylim(0,2)
@@ -329,6 +313,8 @@ def __makeplot_overview3(df, mlti):
     ax[0,0].set_ylabel(f"FJ{config['ring']} (Hz)", fontsize=font)
     ax[1,0].set_ylabel(f"F1{config['ring']} (Hz)", fontsize=font)
     ax[2,0].set_ylabel(f"F2{config['ring']} (Hz)", fontsize=font)
+
+    ax[0,0].set_title(config['date'], loc="left")
 
     for i in range(3):
         for j in range(4):
@@ -360,17 +346,21 @@ def main(config):
     filename = f"FJ{config['ring']}_{date.replace('-','')}"
     df = read_pickle(config['path_to_data']+filename+".pkl")
 
-    ## read mlti log
-    mlti = read_csv(config['path_to_mlti'], names=["datetime", "action"])
+    try:
+        ## read mlti log
+        mlti = read_csv(config['path_to_mlti'], names=["datetime", "action"])
 
-    ## add row with datetimes
-    mlti['dt'] = to_datetime(mlti.index)
+        ## add row with datetimes
+        mlti['dt'] = to_datetime(mlti.index, format="mixed")
 
-    ## filter for current date
-    mlti = mlti[(mlti.dt > date) & (mlti.dt < dt_date + Timedelta(days=1))]
+        ## filter for current date
+        mlti = mlti[(mlti.dt > date) & (mlti.dt < dt_date + Timedelta(days=1))]
 
-    ## add seconds column
-    mlti['seconds'] = [abs(utc_date - UTCDateTime(t)) for t in mlti.dt]
+        ## add seconds column
+        mlti['seconds'] = [abs(utc_date - UTCDateTime(t)) for t in mlti.dt]
+
+    except:
+        print(f"Error reading MLTI")
 
     print(df)
 

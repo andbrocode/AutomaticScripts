@@ -15,24 +15,9 @@ import numpy as np
 from obspy.clients.fdsn import Client
 
 # specify paths
-if os.uname().nodename == 'lighthouse':
-    root_path = '/home/andbro/'
-    data_path = '/home/andbro/kilauea-data/'
-    archive_path = '/home/andbro/freenas/'
-    bay_path = '/home/andbro/ontap-ffb-bay200/'
-    lamont_path = '/home/andbro/lamont/'
-elif os.uname().nodename == 'kilauea':
-    root_path = '/home/brotzer/'
-    data_path = '/import/kilauea-data/'
-    archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/import/ontap-ffb-bay200/'
-    lamont_path = '/lamont/'
-elif os.uname().nodename in ['lin-ffb-01', 'ambrym', 'hochfelln']:
-    root_path = '/home/brotzer/'
-    data_path = '/import/kilauea-data/'
-    archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/import/ontap-ffb-bay200/'
-    lamont_path = '/lamont/'
+archive_path = '/freenas-ffb-01/'
+bay_path = '/bay200/'
+
 
 # ___________________________________________________
 # ## Configurations
@@ -43,7 +28,7 @@ config = {}
 config['reference'] = "GR.FUR"
 
 # specify stations to exclude
-config['exclude'] = ['BW.ALFT']
+config['exclude'] = ['BW.ALFT', 'BW.GELB']
 
 # output path for figures
 # config['path_to_figs'] = data_path+"romy_events/figures/"
@@ -130,21 +115,9 @@ def __compute_romy_adr(tbeg, tend, submask='all', ref_station='GR.FUR', excluded
     warnings.filterwarnings('ignore')
 
     # specify paths
-    if os.uname().nodename == 'lighthouse':
-        root_path = '/home/andbro/'
-        data_path = '/home/andbro/kilauea-data/'
-        archive_path = '/home/andbro/freenas/'
-        bay_path = '/home/andbro/bay200/'
-    elif os.uname().nodename == 'kilauea':
-        root_path = '/home/brotzer/'
-        data_path = '/import/kilauea-data/'
-        archive_path = '/import/freenas-ffb-01-data/'
-        bay_path = '/bay200/'
-    elif os.uname().nodename == 'lin-ffb-01':
-        root_path = '/home/brotzer/'
-        data_path = '/import/kilauea-data/'
-        archive_path = '/import/freenas-ffb-01-data/'
-        bay_path = '/bay200/'
+    data_path = '/freenas-ffb-01/'
+    archive_path = '/import/freenas-ffb-01/'
+    bay_path = '/bay200/'
 
     # _____________________________________________________
 

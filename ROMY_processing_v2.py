@@ -23,21 +23,8 @@ from numpy import where
 import warnings
 warnings.filterwarnings('ignore')
 
-if os.uname().nodename == 'lighthouse':
-    root_path = '/home/andbro/'
-    data_path = '/home/andbro/kilauea-data/'
-    archive_path = '/home/andbro/freenas/'
-    bay_path = '/home/andbro/ontap-ffb-bay200/'
-elif os.uname().nodename == 'kilauea':
-    root_path = '/home/brotzer/'
-    data_path = '/import/kilauea-data/'
-    archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/import/ontap-ffb-bay200/'
-elif os.uname().nodename in ['lin-ffb-01', 'ambrym', 'hochfelln']:
-    root_path = '/home/brotzer/'
-    data_path = '/import/kilauea-data/'
-    archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/import/ontap-ffb-bay200/'
+archive_path = '/freenas-ffb-01/'
+
 
 
 config = {}
@@ -46,9 +33,9 @@ config['path_to_sds'] = archive_path+"romy_archive/"
 
 config['path_to_sds_out'] = archive_path+"temp_archive/"
 
-config['path_to_inventory'] = root_path+"Documents/ROMY/stationxml_ringlaser/dataless/"
+config['path_to_inventory'] = archive_path+"stationxml_ringlaser/dataless/"
 
-config['path_to_figs'] = data_path+"2delete/testfigs/"
+#config['path_to_figs'] = data_path+"2delete/testfigs/"
 
 config['store_figure'] = False
 
@@ -424,7 +411,7 @@ def main(config):
     st0 = __rotate_romy_ZUV_ZNE(st0, romy_inv, keep_z=True)
 
     # prepare MLTI masks
-    tr_mltiU = __get_trace("BW.ROMY.30.MLT")
+    tr_mltiU = __get_trace("BW.ROMY.40.MLT")
 
     tr_mltiU.data = __mlti_intervals_to_zero(tr_mltiU.data,
                                              tr_mltiU.times(reftime=config['t1'], type="utcdatetime"),
@@ -433,7 +420,7 @@ def main(config):
                                              t_offset_sec=60
                                              )
 
-    tr_mltiV = __get_trace("BW.ROMY.30.MLT")
+    tr_mltiV = __get_trace("BW.ROMY.40.MLT")
 
     tr_mltiV.data = __mlti_intervals_to_zero(tr_mltiV.data,
                                              tr_mltiV.times(reftime=config['t1'], type="utcdatetime"),
@@ -442,7 +429,7 @@ def main(config):
                                              t_offset_sec=60
                                              )
 
-    tr_mltiZ = __get_trace("BW.ROMY.30.MLT")
+    tr_mltiZ = __get_trace("BW.ROMY.40.MLT")
 
     tr_mltiZ.data = __mlti_intervals_to_zero(tr_mltiZ.data,
                                              tr_mltiZ.times(reftime=config['t1'], type="utcdatetime"),
@@ -472,64 +459,11 @@ def main(config):
 #                                            t_offset_sec=60
 #                                            )
 
-    # despiking using LTA - STA triggers
-    spikes = {}
-    masks = {}
-
-    for tr in st0:
-
-        df = tr.stats.sampling_rate
-
-        cha = tr.stats.channel[-1]
-
-        data = tr.copy().data
-
-        _data = tr.copy().data
-
-        spikes[cha] = np.zeros(_data.size)
-        masks[cha] = np.ones(_data.size)
-
-        it = 0
-        for i in range(50):
-
-            it = i
-
-            # detect spikes
-            _spikes, mask1, mask2 = despike_sta_lta(_data, df, t_lta=50, t_sta=1, threshold_upper=30, plot=False)
-
-            # stop if no more spikes are detected
-            if any(_sp >= 1 for _sp in _spikes):
-                # apply mask
-                # _data *= mask1
-                _data *= mask1
-
-                # add detected spikes
-                spikes[cha] += _spikes
-
-                # add detected spikes
-                masks[cha] *= mask1
-
-            else:
-                print(f" -> stopped despiking!\n    {cha}: iteration={it}  spikes={int(sum(spikes[cha]))}")
-                break
-        if it == 49:
-            print(f" -> finished despiking!\n    {cha}: iteration={it}  spikes={int(sum(spikes[cha]))}")
-
-        # normalize to one (avoid accumulation)
-        spikes[cha] = np.where(spikes[cha] > 1, 1, spikes[cha])
-
-    # checkup plot
-    if config['store_figure']:
-        fig = __checkup_plot(st0, masks, spikes)
-        fig.savefig(config['path_to_figs']+f"{config['tbeg'].date}.png", format="png", dpi=150, bbox_inches='tight')
-        print(f" -> store figure: ",config['path_to_figs']+f"{config['tbeg'].date}.png")
-        del fig
-
     # write output Z
     outZ = obs.Stream()
 
     outZ += st0.select(component="Z").copy()
-    outZ.select(component="Z")[0].stats.location = "30"
+    outZ.select(component="Z")[0].stats.location = "40"
 
     data = outZ.select(component="Z")[0].data
     mask = tr_mltiZ.data
@@ -540,11 +474,12 @@ def main(config):
     # apply mlti mask
     dat1 = ma.masked_array(data, mask=mask)
 
-    # apply spikes mask
-    dat2 = ma.masked_array(dat1, mask=spikes["Z"])
-
-    # overwrite data
-    outZ.select(component="Z")[0].data = dat2
+    # check if all data is masked -> replace with nan values
+    if dat1.mask.all():
+        outZ.select(component="Z")[0].data = np.nan*np.ones(len(dat1))
+    else:
+        # otherwise overwrite data with masked data
+        outZ.select(component="Z")[0].data = dat1
 
     # trim to defined interval
     outZ = outZ.trim(config['tbeg'], config['tend'], nearest_sample=False)
@@ -554,12 +489,11 @@ def main(config):
 
     __write_stream_to_sds(outZ, "BJZ", config['path_to_sds_out'])
 
-
     # write output N
     outN = obs.Stream()
 
     outN += st0.select(component="N").copy()
-    outN.select(component="N")[0].stats.location = "30"
+    outN.select(component="N")[0].stats.location = "40"
 
     data = outN.select(component="N")[0].data
     mask = tr_mltiH.data
@@ -570,11 +504,12 @@ def main(config):
     # apply mlti mask
     dat1 = ma.masked_array(data, mask=mask)
 
-    # apply spikes mask
-    dat2 = ma.masked_array(dat1, mask=spikes["N"])
-
-    # overwrite data
-    outN.select(component="N")[0].data = dat2
+    # check if all data is masked -> replace with nan values
+    if dat1.mask.all():
+        outN.select(component="N")[0].data = np.nan*np.ones(len(dat1))
+    else:
+        # otherwise overwrite data with masked data
+        outN.select(component="N")[0].data = dat1
 
     # trim to defined interval
     outN = outN.trim(config['tbeg'], config['tend'], nearest_sample=False)
@@ -588,7 +523,7 @@ def main(config):
     outE = obs.Stream()
 
     outE += st0.select(component="E").copy()
-    outE.select(component="E")[0].stats.location = "30"
+    outE.select(component="E")[0].stats.location = "40"
 
     data = outE.select(component="E")[0].data
     mask = tr_mltiH.data
@@ -599,11 +534,12 @@ def main(config):
     # apply mlti mask
     dat1 = ma.masked_array(data, mask=mask)
 
-    # apply spikes mask
-    dat2 = ma.masked_array(dat1, mask=spikes["E"])
-
-    # overwrite data
-    outE.select(component="E")[0].data = dat2
+    # check if all data is masked -> replace with nan values
+    if dat1.mask.all():
+        outE.select(component="E")[0].data = np.nan*np.ones(len(dat1))
+    else:
+        # otherwise overwrite data with masked data
+        outE.select(component="E")[0].data = dat1
 
     # adjust time period
     outE = outE.trim(config['tbeg'], config['tend'], nearest_sample=False)

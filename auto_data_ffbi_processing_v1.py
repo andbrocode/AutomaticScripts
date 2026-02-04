@@ -22,30 +22,18 @@ from numpy import where
 import warnings
 warnings.filterwarnings('ignore')
 
-if os.uname().nodename == 'lighthouse':
-    root_path = '/home/andbro/'
-    data_path = '/home/andbro/kilauea-data/'
-    archive_path = '/home/andbro/freenas/'
-    bay_path = '/home/andbro/ontap-ffb-bay200/'
-elif os.uname().nodename == 'kilauea':
-    root_path = '/home/brotzer/'
-    data_path = '/import/kilauea-data/'
-    archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/import/ontap-ffb-bay200/'
-elif os.uname().nodename in ['lin-ffb-01', 'ambrym', 'hochfelln']:
-    root_path = '/home/brotzer/'
-    data_path = '/import/kilauea-data/'
-    archive_path = '/import/freenas-ffb-01-data/'
-    bay_path = '/import/ontap-ffb-bay200/'
+# specify paths
+archive_path = '/freenas-ffb-01/'
+bay_path = '/bay200/'
 
-
+# set configurations
 config = {}
 
 config['path_to_sds'] = archive_path+"romy_archive/"
 
 config['path_to_sds_out'] = archive_path+"temp_archive/"
 
-config['path_to_inventory'] = root_path+"Documents/ROMY/stationxml_ringlaser/dataless/"
+config['path_to_inventory'] = archive_path+"stationxml_ringlaser/dataless/"
 
 if len(sys.argv) > 1:
     config['tbeg'] = obs.UTCDateTime(sys.argv[1])
@@ -161,7 +149,7 @@ def __get_trace(seed):
 def main(config):
 
     # load inventory
-    ffbi_inv = obs.read_inventory(root_path+"/Documents/ROMY/ROMY_infrasound/station_BW_FFBI.xml")
+    ffbi_inv = obs.read_inventory(archive_path+"stationxml_ringlaser/station_BW_FFBI.xml")
 
     # load data
     ffbi = __read_sds(bay_path+"mseed_online/archive/", "BW.FFBI..BDF", config['tbeg']-3600, config['tend']+3600)

@@ -31,9 +31,7 @@ mpl.rcParams['agg.path.chunksize'] = 10000
 ## _______________________________________________
 ## Configuration
 
-freenas_path = "/import/freenas-ffb-01-data/"
-#freenas_path = "/home/andbro/freenas/"
-
+freenas_path = "/freenas-ffb-01/"
 
 config = {}
 
@@ -764,6 +762,7 @@ def __makeplot_colorlines_and_helicorder(config, ff, data, traces, peaks=None, s
     ax[0].set_title(f"Sagnac Spetra of R{config['ring']} on {config['tbeg']} ({config['interval']}s windows) ", fontsize=font+2)
 
     ax[0].tick_params(axis='both', labelsize=font-2)
+    ax[0].set_ylim(1e-9, 1e2)
 
     ## ___________________________________
     ## PLOT 2
