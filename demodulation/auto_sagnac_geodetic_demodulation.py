@@ -127,14 +127,15 @@ config['mode'] = "geodetic" # seismic | geodetic
 def main(config):
 
 
-    sagnac = sagnacdemod(output_sampling_rate=20,
-                         ddt=config.get('ddt'),
-                         nominal_sagnacf=config.get('nominal_sagnac'),
-                         loc=config.get('loc'),
-                         ring=config.get('ring'),
-                         adaptive_scaling=config.get('adaptive_scaling'),
-                         mode=config.get('mode')
-                         )
+    sagnac = sagnacdemod(
+        output_sampling_rate=20,
+        ddt=config.get('ddt'),
+        nominal_sagnacf=config.get('nominal_sagnac'),
+        loc=config.get('loc'),
+        ring=config.get('ring'),
+        adaptive_scaling=config.get('adaptive_scaling'),
+        mode=config.get('mode')
+    )
 
     if config['store_config']:
         sagnac.save_to_pickle(config, config['path_to_config'], f"{config['project']}_config.pkl")
@@ -147,39 +148,67 @@ def main(config):
 
         for t1, t2 in tqdm(intervals):
 
-            sagnac.load_sagnac_data(config['seed'],
-                                    t1,
-                                    t2,
-                                    config.get('path_to_sds'),
-                                    verbose=config.get('verbose'),
-                                    )
+            try:
+                sagnac.load_sagnac_data(config['seed'],
+                                        t1,
+                                        t2,
+                                        config.get('path_to_sds'),
+                                        verbose=config.get('verbose'),
+                                        )
 
+                sagnac.hilbert_estimator(fband=config.get('fband'),
+                                        acorrect=config.get('correct_amplitudes'),
+                                        prewhiten=config.get('prewhitening'),
+                                        )
 
-            sagnac.hilbert_estimator(fband=config.get('fband'),
-                                    acorrect=config.get('correct_amplitudes'),
-                                    prewhiten=config.get('prewhitening'),
-                                    )
-
-            sagnac.get_stream(df=config.get('output_sps'))
+                sagnac.get_stream(df=config.get('output_sps'))
+            except IndexError as e:
+                # Handle case where stream is empty (no data found for this interval)
+                print(f"Warning: No data found for {config['seed']} from {t1} to {t2}. Skipping interval.")
+                continue
+            except (AttributeError, KeyError) as e:
+                # Handle missing attributes or keys
+                if config.get('verbose'):
+                    print(f"Warning: Error accessing data for {config['seed']} from {t1} to {t2}: {e}. Skipping interval.")
+                continue
+            except Exception as e:
+                # Handle any other unexpected errors
+                if config.get('verbose'):
+                    print(f"Warning: Unexpected error for {config['seed']} from {t1} to {t2}: {e}. Skipping interval.")
+                continue
 
     else:
 
         for t1, t2 in intervals:
 
-            sagnac.load_sagnac_data(config['seed'],
-                                    t1,
-                                    t2,
-                                    config.get('path_to_sds'),
-                                    verbose=config.get('verbose'),
-                                    )
+            try:
+                sagnac.load_sagnac_data(config['seed'],
+                                        t1,
+                                        t2,
+                                        config.get('path_to_sds'),
+                                        verbose=config.get('verbose'),
+                                        )
 
+                sagnac.hilbert_estimator(fband=config.get('fband'),
+                                        acorrect=config.get('correct_amplitudes'),
+                                        prewhiten=config.get('prewhitening'),
+                                        )
 
-            sagnac.hilbert_estimator(fband=config.get('fband'),
-                                    acorrect=config.get('correct_amplitudes'),
-                                    prewhiten=config.get('prewhitening'),
-                                    )
-
-            sagnac.get_stream(df=config.get('output_sps'))
+                sagnac.get_stream(df=config.get('output_sps'))
+            except IndexError as e:
+                # Handle case where stream is empty (no data found for this interval)
+                print(f"Warning: No data found for {config['seed']} from {t1} to {t2}. Skipping interval.")
+                continue
+            except (AttributeError, KeyError) as e:
+                # Handle missing attributes or keys
+                if config.get('verbose'):
+                    print(f"Warning: Error accessing data for {config['seed']} from {t1} to {t2}: {e}. Skipping interval.")
+                continue
+            except Exception as e:
+                # Handle any other unexpected errors
+                if config.get('verbose'):
+                    print(f"Warning: Unexpected error for {config['seed']} from {t1} to {t2}: {e}. Skipping interval.")
+                continue
 
     print(sagnac.fstream)
 
